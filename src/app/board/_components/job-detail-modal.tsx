@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Job, Coluna, Comentario, Arquivo, Profile } from '@/lib/types'
 import { PRIORIDADES, TIPOS_JOB, TAGS } from '@/lib/constants'
 import { FileUpload } from './file-upload'
@@ -29,6 +29,7 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
 
   // @mention state
   const [membros, setMembros] = useState<Profile[]>([])
+  const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const [showMentionDropdown, setShowMentionDropdown] = useState(false)
   const [mentionFilter, setMentionFilter] = useState('')
   const [mentionIndex, setMentionIndex] = useState(0)
@@ -90,25 +91,13 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
     }
   }
 
-  // Extract @mention user IDs from text
-  const extractMencoes = useCallback((text: string): string[] => {
-    const ids: string[] = []
-    const regex = /@(\w[\w\s]*)/g
-    let match
-    while ((match = regex.exec(text)) !== null) {
-      const name = match[1].trim().toLowerCase()
-      const membro = membros.find((m) => m.nome.toLowerCase() === name)
-      if (membro) ids.push(membro.id)
-    }
-    return ids
-  }, [membros])
-
   async function handleAddComment(e: React.FormEvent) {
     e.preventDefault()
     if (!novoComentario.trim() || sendingComment) return
 
     setSendingComment(true)
-    const mencoes = extractMencoes(novoComentario)
+    // Use tracked IDs from dropdown selections (deduplicated)
+    const mencoes = Array.from(new Set(mentionedIds))
 
     try {
       const res = await fetch(`/api/jobs/${job.id}/comentarios`, {
@@ -120,9 +109,13 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
         const created = await res.json()
         setComentarios((prev) => [...prev, created])
         setNovoComentario('')
+        setMentionedIds([])
       } else {
-        console.error('Erro ao salvar comentario:', res.status, await res.text())
+        const errText = await res.text()
+        console.error('Erro ao salvar comentario:', res.status, errText)
       }
+    } catch (err) {
+      console.error('Erro de rede ao salvar comentario:', err)
     } finally {
       setSendingComment(false)
     }
@@ -188,6 +181,8 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
     const newText = `${before}@${membro.nome} ${after}`
     setNovoComentario(newText)
     setShowMentionDropdown(false)
+    // Track mentioned user ID
+    setMentionedIds((prev) => prev.includes(membro.id) ? prev : [...prev, membro.id])
     inputRef.current?.focus()
   }
 
