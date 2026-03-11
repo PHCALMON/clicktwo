@@ -12,9 +12,10 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Fetch comments
   const { data: comentarios, error } = await supabase
     .from('comentarios')
-    .select('*, autor:profiles!autor_id(id, nome, email, avatar_url)')
+    .select('*')
     .eq('job_id', params.id)
     .order('created_at', { ascending: true })
 
@@ -22,7 +23,28 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(comentarios)
+  // Fetch profiles for all unique autor_ids
+  const autorIds = Array.from(new Set(comentarios.map((c: { autor_id: string }) => c.autor_id)))
+  let profilesMap: Record<string, { id: string; nome: string; email: string; avatar_url: string | null }> = {}
+
+  if (autorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, nome, email, avatar_url')
+      .in('id', autorIds)
+
+    if (profiles) {
+      profilesMap = Object.fromEntries(profiles.map((p) => [p.id, p]))
+    }
+  }
+
+  // Attach autor to each comment
+  const result = comentarios.map((c: { autor_id: string }) => ({
+    ...c,
+    autor: profilesMap[c.autor_id] ?? null,
+  }))
+
+  return NextResponse.json(result)
 }
 
 export async function POST(
@@ -52,23 +74,24 @@ export async function POST(
       texto: texto.trim(),
       mencoes: mencoes || [],
     })
-    .select('*, autor:profiles!autor_id(id, nome, email, avatar_url)')
+    .select('*')
     .single()
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
+  // Attach autor profile
+  const { data: autorProfile } = await supabase
+    .from('profiles')
+    .select('id, nome, email, avatar_url')
+    .eq('id', user.id)
+    .single()
+
+  const result = { ...comentario, autor: autorProfile }
+
   // Create notifications for mentioned users
   if (mencoes && mencoes.length > 0) {
-    // Get author profile for notification
-    const { data: autorProfile } = await supabase
-      .from('profiles')
-      .select('nome')
-      .eq('id', user.id)
-      .single()
-
-    // Get job info for notification context
     const { data: job } = await supabase
       .from('jobs')
       .select('campanha')
@@ -76,7 +99,7 @@ export async function POST(
       .single()
 
     const notificacoes = mencoes
-      .filter((uid: string) => uid !== user.id) // Don't notify yourself
+      .filter((uid: string) => uid !== user.id)
       .map((uid: string) => ({
         user_id: uid,
         tipo: 'mencao',
@@ -91,5 +114,5 @@ export async function POST(
     }
   }
 
-  return NextResponse.json(comentario, { status: 201 })
+  return NextResponse.json(result, { status: 201 })
 }

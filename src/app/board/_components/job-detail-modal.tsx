@@ -120,6 +120,8 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
         const created = await res.json()
         setComentarios((prev) => [...prev, created])
         setNovoComentario('')
+      } else {
+        console.error('Erro ao salvar comentario:', res.status, await res.text())
       }
     } finally {
       setSendingComment(false)

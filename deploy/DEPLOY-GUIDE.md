@@ -110,9 +110,24 @@ pm2 monit
 
 ---
 
-## Atualizar o deploy
+## Atualizar o deploy (com QA Gate)
 
-Para futuras atualizacoes:
+Para futuras atualizacoes, use o script com QA Gate integrado:
+
+```bash
+cd apps/clicktwo
+bash deploy/deploy.sh
+```
+
+O script faz automaticamente:
+1. **QA Local** — Build (TypeScript + ESLint), verifica git limpo
+2. **Push** — Envia para GitHub se tem commits locais
+3. **Deploy VPS** — Pull, build, copia static para standalone, restart PM2
+4. **Smoke Tests** — Login page 200, API auth gates 401, dominio externo
+5. **Estabilidade** — PM2 online, sem crash loop, logs limpos
+6. **Resultado** — Pass/fail com contagem de erros
+
+### Deploy manual (fallback)
 
 ```bash
 # 1. No Mac: rebuild + tarball
