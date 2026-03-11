@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import type { Coluna, Job, Cliente, TagJob, Prioridade } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { KanbanBoard } from './kanban-board'
+import { JobListView } from './job-list-view'
 import { NewJobModal } from './new-job-modal'
 import { JobDetailModal } from './job-detail-modal'
 
@@ -17,6 +18,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const [colunas, setColunas] = useState<Coluna[]>(initialColunas)
   const [jobs, setJobs] = useState<Job[]>(initialJobs)
   const [clientesList, setClientesList] = useState<Cliente[]>(initialClientes)
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [showNewJob, setShowNewJob] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null)
@@ -161,12 +163,50 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     <>
       <div className="flex items-center justify-between px-6 pt-5 pb-2">
         <h2 className="text-xl font-bold text-text-primary">Board</h2>
-        <button
-          onClick={() => setShowNewJob(true)}
-          className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
-        >
-          + Novo Job
-        </button>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex bg-bg-elevated border border-border rounded-md overflow-hidden">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                viewMode === 'kanban'
+                  ? 'bg-accent text-bg-primary'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Kanban"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="18" rx="1" />
+                <rect x="14" y="3" width="7" height="12" rx="1" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-accent text-bg-primary'
+                  : 'text-text-secondary hover:text-text-primary'
+              }`}
+              title="Lista"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowNewJob(true)}
+            className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
+          >
+            + Novo Job
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -212,19 +252,29 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           ))}
         </aside>
 
-        {/* Board */}
-        <div className="flex-1 overflow-x-auto">
-          <KanbanBoard
-            colunas={colunas}
-            jobs={filteredJobs}
-            onJobMove={handleJobMove}
-            onJobsReorder={handleJobsReorder}
-            onJobClick={handleJobClick}
-            onTagsChange={handleTagsChange}
-            onPriorityChange={handlePriorityChange}
-            onAddColumn={handleAddColumn}
-          />
-        </div>
+        {/* Board or List */}
+        {viewMode === 'kanban' ? (
+          <div className="flex-1 overflow-x-auto">
+            <KanbanBoard
+              colunas={colunas}
+              jobs={filteredJobs}
+              onJobMove={handleJobMove}
+              onJobsReorder={handleJobsReorder}
+              onJobClick={handleJobClick}
+              onTagsChange={handleTagsChange}
+              onPriorityChange={handlePriorityChange}
+              onAddColumn={handleAddColumn}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto">
+            <JobListView
+              colunas={colunas}
+              jobs={filteredJobs}
+              onJobClick={handleJobClick}
+            />
+          </div>
+        )}
       </div>
 
       {showNewJob && (
