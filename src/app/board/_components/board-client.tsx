@@ -66,17 +66,21 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
   useRealtime(realtimeCallbacks)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleJobMove = useCallback((jobId: string, newColunaId: string, newPosicao: number) => {
-    // TODO: call Supabase to persist the move
-  }, [])
+  const isDemoMode = typeof window !== 'undefined' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
+
+  const handleJobMove = useCallback(async (jobId: string, newColunaId: string, newPosicao: number) => {
+    if (isDemoMode) return
+    await fetch(`/api/jobs/${jobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coluna_id: newColunaId, posicao: newPosicao }),
+    })
+  }, [isDemoMode])
 
   const handleJobsReorder = useCallback((updatedJobs: Job[]) => {
     setJobs(updatedJobs)
   }, [])
-
-  const isDemoMode = typeof window !== 'undefined' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
 
   const handleNewJob = useCallback(async (jobData: Partial<Job>) => {
     if (isDemoMode) {
@@ -127,13 +131,27 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setSelectedJob(updatedJob)
   }, [])
 
-  const handleTagsChange = useCallback((jobId: string, tags: TagJob[]) => {
+  const handleTagsChange = useCallback(async (jobId: string, tags: TagJob[]) => {
     setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, tags } : j)))
-  }, [])
+    if (!isDemoMode) {
+      await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      })
+    }
+  }, [isDemoMode])
 
-  const handlePriorityChange = useCallback((jobId: string, prioridade: Prioridade) => {
+  const handlePriorityChange = useCallback(async (jobId: string, prioridade: Prioridade) => {
     setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, prioridade } : j)))
-  }, [])
+    if (!isDemoMode) {
+      await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prioridade }),
+      })
+    }
+  }, [isDemoMode])
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     if (isDemoMode) {
