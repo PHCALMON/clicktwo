@@ -200,51 +200,81 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Filtro Cliente */}
-          <select
-            value={selectedClienteId ?? ''}
-            onChange={(e) => setSelectedClienteId(e.target.value || null)}
-            className="px-3 py-1.5 bg-bg-card border border-border rounded-md text-sm text-text-primary focus:outline-none focus:border-accent"
-          >
-            <option value="">Todos os clientes</option>
-            {clientesList.map((c) => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => setShowNewJob(true)}
-            className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
-          >
-            + Novo Job
-          </button>
-        </div>
+        <button
+          onClick={() => setShowNewJob(true)}
+          className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
+        >
+          + Novo Job
+        </button>
       </div>
 
-      {/* Board or List — full width */}
-      {viewMode === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto">
-          <KanbanBoard
-            colunas={colunas}
-            jobs={filteredJobs}
-            onJobMove={handleJobMove}
-            onJobsReorder={handleJobsReorder}
-            onJobClick={handleJobClick}
-            onTagsChange={handleTagsChange}
-            onPriorityChange={handlePriorityChange}
-            onAddColumn={handleAddColumn}
-          />
-        </div>
-      ) : (
-        <div className="flex-1 overflow-auto">
-          <JobListView
-            colunas={colunas}
-            jobs={filteredJobs}
-            onJobClick={handleJobClick}
-          />
-        </div>
-      )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar de Clientes */}
+        <aside className="w-48 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3 shadow-card">
+          <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-2 mb-2">Clientes</h3>
+          <button
+            onClick={() => setSelectedClienteId(null)}
+            className={`w-full text-left text-sm px-2 py-1.5 rounded-md transition-colors ${
+              selectedClienteId === null
+                ? 'bg-accent/15 text-accent font-semibold'
+                : 'text-text-primary hover:bg-bg-tertiary'
+            }`}
+          >
+            Todos
+          </button>
+          {clientesList.map((cliente) => (
+            <div key={cliente.id} className="flex items-center gap-1">
+              <button
+                onClick={() => setSelectedClienteId(cliente.id)}
+                className={`flex-1 text-left text-sm px-2 py-1.5 rounded-md transition-colors truncate ${
+                  selectedClienteId === cliente.id
+                    ? 'bg-accent/15 text-accent font-semibold'
+                    : 'text-text-primary hover:bg-bg-tertiary'
+                }`}
+              >
+                {cliente.nome}
+              </button>
+              {cliente.drive_folder_url && (
+                <a
+                  href={cliente.drive_folder_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Abrir pasta no Drive"
+                  className="shrink-0 p-1 text-text-secondary hover:text-accent transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          ))}
+        </aside>
+
+        {/* Board or List */}
+        {viewMode === 'kanban' ? (
+          <div className="flex-1 overflow-x-auto">
+            <KanbanBoard
+              colunas={colunas}
+              jobs={filteredJobs}
+              onJobMove={handleJobMove}
+              onJobsReorder={handleJobsReorder}
+              onJobClick={handleJobClick}
+              onTagsChange={handleTagsChange}
+              onPriorityChange={handlePriorityChange}
+              onAddColumn={handleAddColumn}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto">
+            <JobListView
+              colunas={colunas}
+              jobs={filteredJobs}
+              onJobClick={handleJobClick}
+            />
+          </div>
+        )}
+      </div>
 
       {showNewJob && (
         <NewJobModal
