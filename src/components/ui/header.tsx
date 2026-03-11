@@ -26,6 +26,9 @@ export function Header() {
         <a href="/board" className="text-sm text-text-primary hover:text-accent transition-colors font-medium">
           Board
         </a>
+        <a href="/producao" className="text-sm text-text-secondary hover:text-accent transition-colors">
+          Producao
+        </a>
         <a href="/clientes" className="text-sm text-text-secondary hover:text-accent transition-colors">
           Clientes
         </a>
