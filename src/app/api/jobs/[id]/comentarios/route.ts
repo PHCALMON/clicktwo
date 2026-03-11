@@ -110,7 +110,10 @@ export async function POST(
       }))
 
     if (notificacoes.length > 0) {
-      await supabase.from('notificacoes').insert(notificacoes)
+      const { error: notifError } = await supabase.from('notificacoes').insert(notificacoes)
+      if (notifError) {
+        console.error('[comentarios] Erro ao criar notificacoes:', notifError.message)
+      }
     }
   }
 
