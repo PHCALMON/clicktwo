@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState } from 'react'
 import type { Job, TagJob, Prioridade } from '@/lib/types'
 import { TAGS, PRIORIDADES } from '@/lib/constants'
 import { TagBadge } from './tag-badge'
@@ -14,26 +14,6 @@ interface KanbanCardProps {
 export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardProps) {
   const [showPicker, setShowPicker] = useState(false)
   const [showPriorityPicker, setShowPriorityPicker] = useState(false)
-  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 })
-  const [prioPos, setPrioPos] = useState({ top: 0, left: 0 })
-  const tagBtnRef = useRef<HTMLButtonElement>(null)
-  const prioBtnRef = useRef<HTMLButtonElement>(null)
-
-  const openTagPicker = useCallback(() => {
-    if (tagBtnRef.current) {
-      const rect = tagBtnRef.current.getBoundingClientRect()
-      setPickerPos({ top: rect.bottom + 4, left: rect.left })
-    }
-    setShowPicker((v) => !v)
-  }, [])
-
-  const openPrioPicker = useCallback(() => {
-    if (prioBtnRef.current) {
-      const rect = prioBtnRef.current.getBoundingClientRect()
-      setPrioPos({ top: rect.bottom + 4, left: rect.left })
-    }
-    setShowPriorityPicker((v) => !v)
-  }, [])
 
   const formattedDate = job.data_entrega
     ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
@@ -74,10 +54,9 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div>
+        <div className="relative">
           <button
-            ref={prioBtnRef}
-            onClick={() => onPriorityChange && openPrioPicker()}
+            onClick={() => onPriorityChange && setShowPriorityPicker((v) => !v)}
             className={`flex items-center gap-1.5 text-xs ${onPriorityChange ? 'cursor-pointer hover:opacity-80' : ''}`}
           >
             <span
@@ -89,11 +68,8 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
 
           {showPriorityPicker && (
             <>
-              <div className="fixed inset-0 z-[9998]" onClick={() => setShowPriorityPicker(false)} />
-              <div
-                className="fixed z-[9999] bg-bg-elevated border border-border rounded-md shadow-dropdown p-1 w-32"
-                style={{ top: prioPos.top, left: prioPos.left }}
-              >
+              <div className="fixed inset-0 z-40" onClick={() => setShowPriorityPicker(false)} />
+              <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-1 w-32">
                 {(Object.entries(PRIORIDADES) as [Prioridade, { label: string; color: string }][]).map(
                   ([value, config]) => (
                     <button
@@ -125,8 +101,9 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
         )}
       </div>
 
-      {/* Tags — click area stops propagation to avoid opening detail modal */}
+      {/* Tags */}
       <div
+        className="relative"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -136,8 +113,7 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
           ))}
           {onTagsChange && (
             <button
-              ref={tagBtnRef}
-              onClick={openTagPicker}
+              onClick={() => setShowPicker((v) => !v)}
               className="inline-flex items-center justify-center w-5 h-5 rounded-sm text-xs text-text-muted hover:text-accent hover:bg-bg-elevated transition-colors"
               title="Editar tags"
             >
@@ -148,11 +124,8 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
 
         {showPicker && (
           <>
-            <div className="fixed inset-0 z-[9998]" onClick={() => setShowPicker(false)} />
-            <div
-              className="fixed z-[9999] bg-bg-elevated border border-border rounded-md shadow-dropdown p-2 w-48"
-              style={{ top: pickerPos.top, left: pickerPos.left }}
-            >
+            <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+            <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-2 w-48">
               {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
                 ([value, config]) => {
                   const active = job.tags.includes(value)

@@ -253,7 +253,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
         {/* Board or List */}
         {viewMode === 'kanban' ? (
-          <div className="flex-1 overflow-x-auto">
+          <div className="flex-1 overflow-auto">
             <KanbanBoard
               colunas={colunas}
               jobs={filteredJobs}

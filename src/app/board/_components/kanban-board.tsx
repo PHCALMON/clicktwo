@@ -152,7 +152,7 @@ export function KanbanBoard({ colunas, jobs, onJobMove, onJobsReorder, onJobClic
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto p-6 pb-8">
+      <div className="flex gap-4 p-6 pb-8">
         {sortedColunas.map((coluna) => (
           <KanbanColumn
             key={coluna.id}
