@@ -22,6 +22,25 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [editingDriveUrl, setEditingDriveUrl] = useState(false)
   const [driveUrlInput, setDriveUrlInput] = useState(job.drive_folder_url ?? '')
   const [savingDriveUrl, setSavingDriveUrl] = useState(false)
+  const [freelaNome, setFreelaNome] = useState(job.freela_nome ?? '')
+  const [freelaFuncao, setFreelaFuncao] = useState(job.freela_funcao ?? '')
+
+  async function handleSaveFreela(field: 'freela_nome' | 'freela_funcao', value: string) {
+    const trimmed = value.trim() || null
+    const currentValue = field === 'freela_nome' ? job.freela_nome : job.freela_funcao
+    if (trimmed === currentValue) return
+    try {
+      const res = await fetch(`/api/jobs/${job.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: trimmed }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        onUpdate({ ...job, freela_nome: updated.freela_nome, freela_funcao: updated.freela_funcao })
+      }
+    } catch { /* silent */ }
+  }
 
   async function handleSaveDriveUrl() {
     setSavingDriveUrl(true)
@@ -65,8 +84,13 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
     )
   }
 
-  function handleMoveColumn(newColunaId: string) {
+  async function handleMoveColumn(newColunaId: string) {
     onUpdate({ ...job, coluna_id: newColunaId })
+    await fetch(`/api/jobs/${job.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coluna_id: newColunaId }),
+    })
   }
 
   function handleFileUpload(arquivo: Arquivo) {
@@ -228,15 +252,19 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="text"
-                value={job.freela_nome ?? ''}
-                onChange={(e) => onUpdate({ ...job, freela_nome: e.target.value || null })}
+                value={freelaNome}
+                onChange={(e) => setFreelaNome(e.target.value)}
+                onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 placeholder="Nome do freela"
                 className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
               />
               <input
                 type="text"
-                value={job.freela_funcao ?? ''}
-                onChange={(e) => onUpdate({ ...job, freela_funcao: e.target.value || null })}
+                value={freelaFuncao}
+                onChange={(e) => setFreelaFuncao(e.target.value)}
+                onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 placeholder="Função (ex: Motion Designer)"
                 className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
               />
