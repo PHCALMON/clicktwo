@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import type { Job, Coluna, Comentario, Arquivo, Profile } from '@/lib/types'
+import type { Job, Coluna, Comentario, Arquivo, Profile, Entrega, TagJob } from '@/lib/types'
 import { PRIORIDADES, TIPOS_JOB, TAGS } from '@/lib/constants'
 import { FileUpload } from './file-upload'
 
@@ -27,6 +27,12 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [loadingComments, setLoadingComments] = useState(true)
   const [sendingComment, setSendingComment] = useState(false)
 
+  // Entregas state
+  const [entregas, setEntregas] = useState<Entrega[]>([])
+  const [novaEntregaNome, setNovaEntregaNome] = useState('')
+  const [novaEntregaTag, setNovaEntregaTag] = useState<TagJob | ''>('')
+  const [addingEntrega, setAddingEntrega] = useState(false)
+
   // @mention state
   const [membros, setMembros] = useState<Profile[]>([])
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
@@ -39,9 +45,10 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   // Load comments + members on mount
   useEffect(() => {
     async function loadData() {
-      const [commentsRes, membrosRes] = await Promise.all([
+      const [commentsRes, membrosRes, entregasRes] = await Promise.all([
         fetch(`/api/jobs/${job.id}/comentarios`),
         fetch('/api/membros'),
+        fetch(`/api/jobs/${job.id}/entregas`),
       ])
       if (commentsRes.ok) {
         const data = await commentsRes.json()
@@ -50,6 +57,10 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
       if (membrosRes.ok) {
         const data = await membrosRes.json()
         setMembros(data)
+      }
+      if (entregasRes.ok) {
+        const data = await entregasRes.json()
+        setEntregas(data)
       }
       setLoadingComments(false)
     }
@@ -157,6 +168,60 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
         )
       )
     }
+  }
+
+  async function handleAddEntrega(e: React.FormEvent) {
+    e.preventDefault()
+    if (!novaEntregaNome.trim() || addingEntrega) return
+    setAddingEntrega(true)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/entregas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: novaEntregaNome.trim(),
+          tag: novaEntregaTag || null,
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setEntregas((prev) => [...prev, created])
+        setNovaEntregaNome('')
+        setNovaEntregaTag('')
+      } else {
+        console.error('[entregas] Erro ao criar:', res.status, await res.text())
+      }
+    } catch (err) {
+      console.error('[entregas] Erro de rede:', err)
+    } finally {
+      setAddingEntrega(false)
+    }
+  }
+
+  async function toggleEntrega(entregaId: string) {
+    const entrega = entregas.find((e) => e.id === entregaId)
+    if (!entrega) return
+    const newValue = !entrega.concluida
+    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, concluida: newValue } : e))
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/entregas`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entrega_id: entregaId, concluida: newValue }),
+      })
+      if (!res.ok) {
+        setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, concluida: !newValue } : e))
+      }
+    } catch {
+      setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, concluida: !newValue } : e))
+    }
+  }
+
+  async function deleteEntrega(entregaId: string) {
+    setEntregas((prev) => prev.filter((e) => e.id !== entregaId))
+    try {
+      await fetch(`/api/jobs/${job.id}/entregas?entrega_id=${entregaId}`, { method: 'DELETE' })
+    } catch { /* silent */ }
   }
 
   async function handleMoveColumn(newColunaId: string) {
@@ -407,6 +472,99 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                 className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
               />
             </div>
+          </div>
+
+          {/* Entregas */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-text-muted">
+                Entregas {entregas.length > 0 && (
+                  <span className="text-text-secondary font-medium ml-1">
+                    {entregas.filter((e) => e.concluida).length}/{entregas.length}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {entregas.length > 0 && (
+              <div className="space-y-1.5 mb-3">
+                {entregas.map((entrega) => (
+                  <div
+                    key={entrega.id}
+                    className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                      entrega.concluida
+                        ? 'bg-bg-primary border-border opacity-60'
+                        : 'bg-bg-card border-border'
+                    }`}
+                  >
+                    <button
+                      onClick={() => toggleEntrega(entrega.id)}
+                      className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                        entrega.concluida
+                          ? 'bg-accent border-accent text-bg-primary'
+                          : 'border-border hover:border-accent'
+                      }`}
+                    >
+                      {entrega.concluida && (
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className={`text-sm flex-1 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                      {entrega.nome}
+                    </span>
+                    {entrega.tag && TAGS[entrega.tag] && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
+                        style={{
+                          backgroundColor: `${TAGS[entrega.tag].color}20`,
+                          color: TAGS[entrega.tag].color,
+                        }}
+                      >
+                        {TAGS[entrega.tag].label}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => deleteEntrega(entrega.id)}
+                      className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
+                      title="Remover"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleAddEntrega} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={novaEntregaNome}
+                onChange={(e) => setNovaEntregaNome(e.target.value)}
+                placeholder="Nome da entrega..."
+                className="flex-1 px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+              />
+              <select
+                value={novaEntregaTag}
+                onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
+              >
+                <option value="">Tag</option>
+                {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                  ([value, config]) => (
+                    <option key={value} value={value}>{config.label}</option>
+                  )
+                )}
+              </select>
+              <button
+                type="submit"
+                disabled={!novaEntregaNome.trim() || addingEntrega}
+                className="px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {addingEntrega ? '...' : '+'}
+              </button>
+            </form>
           </div>
 
           <div className="border-t border-border" />

@@ -37,6 +37,9 @@ export interface Job {
   // joined
   cliente?: Cliente
   coluna?: Coluna
+  // aggregated
+  entregas_total?: number
+  entregas_concluidas?: number
 }
 
 export interface Profile {
@@ -68,6 +71,16 @@ export interface Notificacao {
   autor_nome: string | null
   job_campanha: string | null
   lida: boolean
+  created_at: string
+}
+
+export interface Entrega {
+  id: string
+  job_id: string
+  nome: string
+  tag: TagJob | null
+  concluida: boolean
+  posicao: number
   created_at: string
 }
 
