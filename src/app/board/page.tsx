@@ -1,4 +1,4 @@
-import type { Coluna, Job, Cliente } from '@/lib/types'
+import type { Coluna, Job, Cliente, Profile } from '@/lib/types'
 import { BoardClient } from './_components/board-client'
 
 const isDemoMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
@@ -49,7 +49,7 @@ const DEMO_JOBS: Job[] = [
   {
     id: 'j4', cliente_id: 'c1', campanha: 'Reels Q1', tipo_job: 'social',
     coluna_id: '3', posicao: 0, data_entrega: '2026-03-18', prioridade: 'alta',
-    tags: ['edicao', 'ajuste'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['edicao', 'color'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c1', nome: 'Banco XP', drive_folder_url: null, created_at: '' },
   },
@@ -73,21 +73,27 @@ export default async function BoardPage() {
   let colunas = DEMO_COLUNAS
   let jobs = DEMO_JOBS
   let clientes = DEMO_CLIENTES
+  let membros: Profile[] = []
+  let currentUserId = ''
 
   if (!isDemoMode) {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
 
-    const [colunasRes, jobsRes, clientesRes] = await Promise.all([
+    const [colunasRes, jobsRes, clientesRes, membrosRes, userRes] = await Promise.all([
       supabase.from('colunas').select('*').order('posicao'),
       supabase.from('jobs').select('*, cliente:clientes(*)').order('posicao'),
       supabase.from('clientes').select('*').order('nome'),
+      supabase.from('profiles').select('id, nome, email, avatar_url, status, status_updated_at').order('nome'),
+      supabase.auth.getUser(),
     ])
 
     colunas = colunasRes.data ?? DEMO_COLUNAS
     jobs = (jobsRes.data ?? DEMO_JOBS) as Job[]
     clientes = clientesRes.data ?? DEMO_CLIENTES
+    membros = (membrosRes.data ?? []) as Profile[]
+    currentUserId = userRes.data?.user?.id ?? ''
   }
 
-  return <BoardClient colunas={colunas} jobs={jobs} clientes={clientes} />
+  return <BoardClient colunas={colunas} jobs={jobs} clientes={clientes} membros={membros} currentUserId={currentUserId} />
 }

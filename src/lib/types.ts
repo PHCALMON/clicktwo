@@ -1,8 +1,10 @@
+export type StatusMembro = 'livre' | 'estudando' | 'producao' | 'ajuda' | 'ausente'
+
 export type Prioridade = 'urgente' | 'alta' | 'normal'
 
 export type TipoJob = 'publicidade' | 'institucional' | 'social' | 'ia' | 'varejo'
 
-export type TagJob = 'edicao' | 'motion' | 'ajuste' | 'refacao' | 'arte' | 'em_aprovacao' | 'aprovado' | 'falta_material' | 'mix'
+export type TagJob = 'falta_material' | 'arte' | 'edicao' | 'motion' | 'ai_gen_still' | 'ai_gen_video' | 'ai_gen_upscale' | 'color' | 'mix' | 'em_aprovacao' | 'aprovado'
 
 export interface Coluna {
   id: string
@@ -47,6 +49,8 @@ export interface Profile {
   nome: string
   email: string
   avatar_url: string | null
+  status: StatusMembro
+  status_updated_at: string
   created_at: string
 }
 
@@ -93,5 +97,27 @@ export interface Arquivo {
   tamanho: number | null
   tipo_mime: string | null
   uploaded_by: string
+  created_at: string
+}
+
+export interface Tarefa {
+  id: string
+  titulo: string
+  criado_por: string
+  atribuido_a: string
+  concluida: boolean
+  data_limite: string | null
+  created_at: string
+  criador?: Profile
+  atribuido?: Profile
+}
+
+export interface Nota {
+  id: string
+  user_id: string
+  titulo: string
+  conteudo: string
+  posicao: number
+  updated_at: string
   created_at: string
 }

@@ -4,6 +4,54 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Notificacao } from '@/lib/types'
 
+// Persistent AudioContext — warmed up on first user interaction
+let audioCtx: AudioContext | null = null
+
+function getAudioContext(): AudioContext {
+  if (!audioCtx) audioCtx = new AudioContext()
+  if (audioCtx.state === 'suspended') audioCtx.resume()
+  return audioCtx
+}
+
+// Warm up on first click anywhere
+if (typeof window !== 'undefined') {
+  const warmUp = () => {
+    getAudioContext()
+    document.removeEventListener('click', warmUp)
+  }
+  document.addEventListener('click', warmUp)
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = getAudioContext()
+    const now = ctx.currentTime
+
+    // Soft two-tone chime (like iMessage)
+    const notes = [
+      { freq: 830, start: 0, dur: 0.12 },      // A5-ish
+      { freq: 1245, start: 0.12, dur: 0.18 },   // Fifth above — pleasant interval
+    ]
+
+    for (const note of notes) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+
+      osc.type = 'sine'
+      osc.frequency.value = note.freq
+
+      // Soft attack, smooth decay
+      gain.gain.setValueAtTime(0, now + note.start)
+      gain.gain.linearRampToValueAtTime(0.4, now + note.start + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + note.dur)
+
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(now + note.start)
+      osc.stop(now + note.start + note.dur)
+    }
+  } catch { /* Audio not available */ }
+}
+
 export function NotificationBell() {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -44,11 +92,9 @@ export function NotificationBell() {
         { event: 'INSERT', schema: 'public', table: 'notificacoes' },
         (payload) => {
           const newNotif = payload.new as Notificacao
-          console.log('[NotificationBell] Nova notificacao via Realtime:', newNotif)
           setNotificacoes((prev) => [newNotif, ...prev])
-
-          // Add to toast queue
           setToastQueue((prev) => [...prev, newNotif])
+          playNotificationSound()
         }
       )
       .subscribe((status) => {

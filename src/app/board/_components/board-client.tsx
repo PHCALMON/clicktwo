@@ -1,23 +1,27 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import type { Coluna, Job, Cliente, TagJob, Prioridade } from '@/lib/types'
+import type { Coluna, Job, Cliente, TagJob, Prioridade, Profile, StatusMembro } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { KanbanBoard } from './kanban-board'
 import { JobListView } from './job-list-view'
 import { NewJobModal } from './new-job-modal'
 import { JobDetailModal } from './job-detail-modal'
+import { TeamStatusBar } from './team-status-bar'
 
 interface BoardClientProps {
   colunas: Coluna[]
   jobs: Job[]
   clientes: Cliente[]
+  membros: Profile[]
+  currentUserId: string
 }
 
-export function BoardClient({ colunas: initialColunas, jobs: initialJobs, clientes: initialClientes }: BoardClientProps) {
+export function BoardClient({ colunas: initialColunas, jobs: initialJobs, clientes: initialClientes, membros: initialMembros, currentUserId }: BoardClientProps) {
   const [colunas, setColunas] = useState<Coluna[]>(initialColunas)
   const [jobs, setJobs] = useState<Job[]>(initialJobs)
   const [clientesList, setClientesList] = useState<Cliente[]>(initialClientes)
+  const [membrosList, setMembrosList] = useState<Profile[]>(initialMembros)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [showNewJob, setShowNewJob] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
@@ -73,6 +77,17 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     }
   }, [viewMode])
 
+  // Listen for open-job events from notifications panel
+  useEffect(() => {
+    function handleOpenJob(e: Event) {
+      const { jobId } = (e as CustomEvent).detail
+      const job = jobs.find((j) => j.id === jobId)
+      if (job) setSelectedJob(job)
+    }
+    window.addEventListener('open-job', handleOpenJob)
+    return () => window.removeEventListener('open-job', handleOpenJob)
+  }, [jobs])
+
   const filteredJobs = useMemo(() => {
     if (!selectedClienteId) return jobs
     return jobs.filter((j) => j.cliente_id === selectedClienteId)
@@ -110,6 +125,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         setClientesList((prev) => prev.map((c) => (c.id === payload.new.id ? { ...c, ...payload.new } : c)))
       } else if (payload.eventType === 'DELETE') {
         setClientesList((prev) => prev.filter((c) => c.id !== payload.old.id))
+      }
+    },
+    onProfileChange: (payload: { eventType: string; new: Profile; old: Profile }) => {
+      if (payload.eventType === 'UPDATE') {
+        setMembrosList((prev) => prev.map((m) => (m.id === payload.new.id ? { ...m, ...payload.new } : m)))
       }
     },
   }), [])
@@ -215,6 +235,18 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setSelectedJob(null)
   }, [isDemoMode])
 
+  const handleStatusChange = useCallback(async (status: StatusMembro) => {
+    // Optimistic update
+    setMembrosList((prev) => prev.map((m) => (m.id === currentUserId ? { ...m, status } : m)))
+    if (!isDemoMode) {
+      await fetch('/api/membros/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+    }
+  }, [isDemoMode, currentUserId])
+
   const handleAddColumn = useCallback((nome: string, cor: string | null) => {
     const maxPos = Math.max(...colunas.map((c) => c.posicao), -1)
     const newColuna: Coluna = {
@@ -275,6 +307,14 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           + Novo Job
         </button>
       </div>
+
+      {membrosList.length > 0 && (
+        <TeamStatusBar
+          membros={membrosList}
+          currentUserId={currentUserId}
+          onStatusChange={handleStatusChange}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar de Clientes */}

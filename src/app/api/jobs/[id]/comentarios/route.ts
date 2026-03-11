@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function GET(
   _request: Request,
@@ -91,8 +91,6 @@ export async function POST(
   const result = { ...comentario, autor: autorProfile }
 
   // Create notifications for mentioned users
-  console.log('[comentarios] mencoes recebidas:', mencoes, '| autor:', user.id)
-
   if (mencoes && mencoes.length > 0) {
     const { data: job } = await supabase
       .from('jobs')
@@ -111,20 +109,16 @@ export async function POST(
         job_campanha: job?.campanha ?? null,
       }))
 
-    console.log('[comentarios] notificacoes a inserir:', JSON.stringify(notificacoes))
-
     if (notificacoes.length > 0) {
-      const { data: notifData, error: notifError } = await supabase.from('notificacoes').insert(notificacoes).select()
+      // Use admin client to bypass RLS (inserting rows for other users)
+      const admin = createAdminClient()
+      const { data: notifData, error: notifError } = await admin.from('notificacoes').insert(notificacoes).select()
       if (notifError) {
         console.error('[comentarios] ERRO ao criar notificacoes:', notifError.message, notifError.details, notifError.hint)
       } else {
         console.log('[comentarios] Notificacoes criadas OK:', notifData?.length)
       }
-    } else {
-      console.log('[comentarios] Nenhuma notificacao (auto-mencao filtrada)')
     }
-  } else {
-    console.log('[comentarios] Sem mencoes no body')
   }
 
   return NextResponse.json(result, { status: 201 })

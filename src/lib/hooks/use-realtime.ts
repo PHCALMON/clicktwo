@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Job, Coluna, Comentario, Cliente, Notificacao } from '@/lib/types'
+import type { Job, Coluna, Comentario, Cliente, Notificacao, Profile } from '@/lib/types'
 
 const isDemoMode = typeof window !== 'undefined' &&
   process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
@@ -13,6 +13,7 @@ type RealtimeCallbacks = {
   onComentarioChange?: (payload: { eventType: string; new: Comentario; old: Comentario }) => void
   onClienteChange?: (payload: { eventType: string; new: Cliente; old: Cliente }) => void
   onNotificacaoChange?: (payload: { eventType: string; new: Notificacao; old: Notificacao }) => void
+  onProfileChange?: (payload: { eventType: string; new: Profile; old: Profile }) => void
 }
 
 export function useRealtime(callbacks: RealtimeCallbacks) {
@@ -56,6 +57,13 @@ export function useRealtime(callbacks: RealtimeCallbacks) {
         { event: '*', schema: 'public', table: 'notificacoes' },
         (payload) => {
           callbacks.onNotificacaoChange?.(payload as unknown as { eventType: string; new: Notificacao; old: Notificacao })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          callbacks.onProfileChange?.(payload as unknown as { eventType: string; new: Profile; old: Profile })
         }
       )
       .subscribe((status) => {

@@ -33,6 +33,10 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [novaEntregaTag, setNovaEntregaTag] = useState<TagJob | ''>('')
   const [addingEntrega, setAddingEntrega] = useState(false)
 
+  // Tag editing state
+  const [showTagPicker, setShowTagPicker] = useState(false)
+  const [editingEntregaTagId, setEditingEntregaTagId] = useState<string | null>(null)
+
   // @mention state
   const [membros, setMembros] = useState<Profile[]>([])
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
@@ -222,6 +226,28 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
     try {
       await fetch(`/api/jobs/${job.id}/entregas?entrega_id=${entregaId}`, { method: 'DELETE' })
     } catch { /* silent */ }
+  }
+
+  async function toggleJobTag(tag: TagJob) {
+    const next = job.tags.includes(tag)
+      ? job.tags.filter((t) => t !== tag)
+      : [...job.tags, tag]
+    onUpdate({ ...job, tags: next })
+    await fetch(`/api/jobs/${job.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: next }),
+    })
+  }
+
+  async function updateEntregaTag(entregaId: string, tag: TagJob | null) {
+    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, tag } : e))
+    setEditingEntregaTagId(null)
+    await fetch(`/api/jobs/${job.id}/entregas`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entrega_id: entregaId, tag }),
+    })
   }
 
   async function handleMoveColumn(newColunaId: string) {
@@ -428,26 +454,63 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
             </div>
           </div>
 
-          {/* Tags */}
-          {job.tags.length > 0 && (
-            <div>
-              <span className="text-xs text-text-muted block mb-2">Tags</span>
-              <div className="flex gap-2">
-                {job.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-2 py-0.5 rounded-sm text-xs font-medium"
-                    style={{
-                      backgroundColor: `${TAGS[tag].color}20`,
-                      color: TAGS[tag].color,
-                    }}
-                  >
-                    {TAGS[tag].label}
-                  </span>
-                ))}
-              </div>
+          {/* Tags — editable */}
+          <div className="relative">
+            <span className="text-xs text-text-muted block mb-2">Tags</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {job.tags.map((tag) => TAGS[tag] && (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 rounded-sm text-xs font-medium"
+                  style={{
+                    backgroundColor: `${TAGS[tag].color}20`,
+                    color: TAGS[tag].color,
+                  }}
+                >
+                  {TAGS[tag].label}
+                </span>
+              ))}
+              <button
+                onClick={() => setShowTagPicker((v) => !v)}
+                className="inline-flex items-center justify-center w-5 h-5 rounded-sm text-xs text-text-muted hover:text-accent hover:bg-bg-card transition-colors"
+                title="Editar tags"
+              >
+                +
+              </button>
             </div>
-          )}
+            {showTagPicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
+                <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-2 w-52 max-h-72 overflow-y-auto">
+                  {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                    ([value, config]) => {
+                      const active = job.tags.includes(value)
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => toggleJobTag(value)}
+                          className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-left transition-colors ${
+                            active ? 'bg-bg-card' : 'hover:bg-bg-card'
+                          }`}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: config.color }}
+                          />
+                          <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                            {config.label}
+                          </span>
+                          {active && (
+                            <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                          )}
+                        </button>
+                      )
+                    }
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Freela */}
           <div>
@@ -514,17 +577,61 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                     <span className={`text-sm flex-1 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
                       {entrega.nome}
                     </span>
-                    {entrega.tag && TAGS[entrega.tag] && (
-                      <span
-                        className="px-1.5 py-0.5 rounded-sm text-[10px] font-medium"
-                        style={{
+                    <div className="relative">
+                      <button
+                        onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
+                        className={`px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors ${
+                          entrega.tag && TAGS[entrega.tag]
+                            ? ''
+                            : 'text-text-muted hover:text-text-secondary border border-dashed border-border'
+                        }`}
+                        style={entrega.tag && TAGS[entrega.tag] ? {
                           backgroundColor: `${TAGS[entrega.tag].color}20`,
                           color: TAGS[entrega.tag].color,
-                        }}
+                        } : undefined}
+                        title="Editar tag"
                       >
-                        {TAGS[entrega.tag].label}
-                      </span>
-                    )}
+                        {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
+                      </button>
+                      {editingEntregaTagId === entrega.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
+                          <div className="absolute right-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-1.5 w-44 max-h-60 overflow-y-auto">
+                            <button
+                              onClick={() => updateEntregaTag(entrega.id, null)}
+                              className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                !entrega.tag ? 'bg-bg-card' : 'hover:bg-bg-card'
+                              }`}
+                            >
+                              <span className="w-2 h-2 rounded-full bg-border flex-shrink-0" />
+                              <span className="text-text-muted">Nenhuma</span>
+                            </button>
+                            {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                              ([value, config]) => (
+                                <button
+                                  key={value}
+                                  onClick={() => updateEntregaTag(entrega.id, value)}
+                                  className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                    entrega.tag === value ? 'bg-bg-card' : 'hover:bg-bg-card'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: config.color }}
+                                  />
+                                  <span className={entrega.tag === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                                    {config.label}
+                                  </span>
+                                  {entrega.tag === value && (
+                                    <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                                  )}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                     <button
                       onClick={() => deleteEntrega(entrega.id)}
                       className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
@@ -689,7 +796,20 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
             {/* New comment form with @mention */}
             <form onSubmit={handleAddComment} className="relative">
               <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 bg-bg-card border border-border rounded-md focus-within:border-accent">
+                  {/* Highlight overlay — renders colored @mentions on top of the input */}
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 px-3 py-2 text-sm pointer-events-none overflow-hidden whitespace-pre z-[1]"
+                  >
+                    {novoComentario.split(/(@\S+)/g).map((part, i) =>
+                      part.startsWith('@') ? (
+                        <span key={i} className="text-accent font-medium">{part}</span>
+                      ) : (
+                        <span key={i} className="text-text-primary">{part}</span>
+                      )
+                    )}
+                  </div>
                   <input
                     ref={inputRef}
                     type="text"
@@ -697,7 +817,8 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                     onChange={(e) => handleCommentInput(e.target.value)}
                     onKeyDown={handleCommentKeyDown}
                     placeholder="Comentar... (use @ para mencionar)"
-                    className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 bg-transparent text-sm placeholder-text-muted focus:outline-none relative"
+                    style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
                   />
 
                   {/* @mention dropdown */}

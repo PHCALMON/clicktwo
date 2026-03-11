@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { NotificationBell } from './notification-bell'
 
 export function Header() {
   const router = useRouter()
@@ -33,7 +32,6 @@ export function Header() {
         <a href="/clientes" className="text-sm text-text-secondary hover:text-accent transition-colors">
           Clientes
         </a>
-        <NotificationBell />
         <button
           onClick={handleLogout}
           className="text-sm text-text-muted hover:text-text-primary transition-colors"

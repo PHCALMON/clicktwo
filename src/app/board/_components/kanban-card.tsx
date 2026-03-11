@@ -125,7 +125,7 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
         {showPicker && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
-            <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-2 w-48">
+            <div className="absolute left-0 bottom-full mb-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-1.5 w-44 max-h-56 overflow-y-auto">
               {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
                 ([value, config]) => {
                   const active = job.tags.includes(value)
@@ -133,12 +133,12 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
                     <button
                       key={value}
                       onClick={() => toggleTag(value)}
-                      className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-left transition-colors ${
+                      className={`flex items-center gap-1.5 w-full px-2 py-1 rounded text-[11px] text-left transition-colors ${
                         active ? 'bg-bg-card' : 'hover:bg-bg-card'
                       }`}
                     >
                       <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                         style={{ backgroundColor: config.color }}
                       />
                       <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
