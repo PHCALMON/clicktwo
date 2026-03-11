@@ -122,14 +122,41 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   }
 
   async function toggleResolvido(commentId: string) {
+    const comment = comentarios.find((c) => c.id === commentId)
+    if (!comment) return
+    const newValue = !comment.resolvido
+
+    // Optimistic update
     setComentarios((prev) =>
       prev.map((c) =>
-        c.id === commentId ? { ...c, resolvido: !c.resolvido } : c
+        c.id === commentId ? { ...c, resolvido: newValue } : c
       )
     )
-    // Persist to API — update comment resolvido field
-    // comentarios table doesn't have a dedicated API for this yet,
-    // so we'll use a direct approach if needed. For now, optimistic update.
+
+    // Persist to database
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/comentarios`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comentario_id: commentId, resolvido: newValue }),
+      })
+      if (!res.ok) {
+        console.error('[comentarios] Erro ao atualizar resolvido:', res.status)
+        // Revert on failure
+        setComentarios((prev) =>
+          prev.map((c) =>
+            c.id === commentId ? { ...c, resolvido: !newValue } : c
+          )
+        )
+      }
+    } catch {
+      // Revert on network error
+      setComentarios((prev) =>
+        prev.map((c) =>
+          c.id === commentId ? { ...c, resolvido: !newValue } : c
+        )
+      )
+    }
   }
 
   async function handleMoveColumn(newColunaId: string) {

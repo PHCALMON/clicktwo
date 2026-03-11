@@ -129,3 +129,34 @@ export async function POST(
 
   return NextResponse.json(result, { status: 201 })
 }
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = await request.json()
+  const { comentario_id, resolvido } = body
+
+  if (!comentario_id || typeof resolvido !== 'boolean') {
+    return NextResponse.json({ error: 'comentario_id and resolvido required' }, { status: 400 })
+  }
+
+  const { error: updateError } = await supabase
+    .from('comentarios')
+    .update({ resolvido })
+    .eq('id', comentario_id)
+    .eq('job_id', params.id)
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
+}
