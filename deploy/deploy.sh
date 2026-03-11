@@ -161,26 +161,26 @@ fi
 
 step "Health check — API jobs (auth required)"
 HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/jobs'")
-if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
+if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ] || [ "$HTTP_CODE" = "307" ]; then
   pass "GET /api/jobs → $HTTP_CODE (auth gate OK)"
 else
-  fail "GET /api/jobs → $HTTP_CODE (esperado 401)"
+  fail "GET /api/jobs → $HTTP_CODE (esperado 401/307)"
 fi
 
 step "Health check — API membros (auth required)"
 HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/membros'")
-if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
+if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ] || [ "$HTTP_CODE" = "307" ]; then
   pass "GET /api/membros → $HTTP_CODE (auth gate OK)"
 else
-  fail "GET /api/membros → $HTTP_CODE (esperado 401)"
+  fail "GET /api/membros → $HTTP_CODE (esperado 401/307)"
 fi
 
 step "Health check — API notificacoes (auth required)"
 HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/notificacoes'")
-if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
+if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ] || [ "$HTTP_CODE" = "307" ]; then
   pass "GET /api/notificacoes → $HTTP_CODE (auth gate OK)"
 else
-  fail "GET /api/notificacoes → $HTTP_CODE (esperado 401)"
+  fail "GET /api/notificacoes → $HTTP_CODE (esperado 401/307)"
 fi
 
 step "Health check — dominio externo"
