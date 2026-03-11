@@ -31,7 +31,7 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
   }
 
   return (
-    <div className="bg-bg-card border border-border rounded-md p-3 shadow-card hover:shadow-card-hover hover:border-border-hover hover:-translate-y-px transition-all duration-150 cursor-pointer group">
+    <div data-card className="bg-bg-card border border-border rounded-md p-3 shadow-card hover:shadow-card-hover hover:border-border-hover hover:-translate-y-px transition-all duration-150 cursor-pointer group">
       <p className="text-sm font-semibold text-text-primary mb-2 group-hover:text-accent transition-colors">
         {job.campanha}
       </p>

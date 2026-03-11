@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { Coluna, Job, Cliente, TagJob, Prioridade } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { KanbanBoard } from './kanban-board'
@@ -22,6 +22,56 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const [showNewJob, setShowNewJob] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null)
+
+  // Drag-to-scroll for kanban
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const startX = useRef(0)
+  const scrollLeft = useRef(0)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    function onMouseDown(e: MouseEvent) {
+      // Only grab on background clicks (not on cards, buttons, inputs)
+      const target = e.target as HTMLElement
+      const isInteractive = target.closest('button, a, input, select, textarea, [draggable="true"], [data-card]')
+      if (isInteractive) return
+
+      isDragging.current = true
+      startX.current = e.pageX - el!.offsetLeft
+      scrollLeft.current = el!.scrollLeft
+      el!.style.cursor = 'grabbing'
+      el!.style.userSelect = 'none'
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (!isDragging.current) return
+      e.preventDefault()
+      const x = e.pageX - el!.offsetLeft
+      const walk = (x - startX.current) * 1.5
+      el!.scrollLeft = scrollLeft.current - walk
+    }
+
+    function onMouseUp() {
+      if (!isDragging.current) return
+      isDragging.current = false
+      el!.style.cursor = 'grab'
+      el!.style.removeProperty('user-select')
+    }
+
+    el.style.cursor = 'grab'
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+
+    return () => {
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [viewMode])
 
   const filteredJobs = useMemo(() => {
     if (!selectedClienteId) return jobs
@@ -271,7 +321,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
         {/* Board or List */}
         {viewMode === 'kanban' ? (
-          <div className="flex-1 overflow-auto">
+          <div ref={scrollRef} className="flex-1 overflow-auto">
             <KanbanBoard
               colunas={colunas}
               jobs={filteredJobs}
