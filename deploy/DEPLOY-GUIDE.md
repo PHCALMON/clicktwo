@@ -2,7 +2,7 @@
 
 **Domain:** clicktwo.e2creativestudio.com.br
 **Server:** srv1385352.hstgr.cloud (46.202.148.138)
-**Port:** 3001 (interno, Nginx faz proxy)
+**Port:** 3000 (interno, Nginx faz proxy)
 
 ---
 

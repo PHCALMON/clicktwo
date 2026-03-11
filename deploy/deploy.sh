@@ -152,7 +152,7 @@ sleep 5
 # ============================================
 
 step "Health check — pagina de login"
-HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/login'")
+HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/login'")
 if [ "$HTTP_CODE" = "200" ]; then
   pass "GET /login → 200"
 else
@@ -160,7 +160,7 @@ else
 fi
 
 step "Health check — API jobs (auth required)"
-HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/jobs'")
+HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/jobs'")
 if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
   pass "GET /api/jobs → $HTTP_CODE (auth gate OK)"
 else
@@ -168,7 +168,7 @@ else
 fi
 
 step "Health check — API membros (auth required)"
-HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/membros'")
+HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/membros'")
 if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
   pass "GET /api/membros → $HTTP_CODE (auth gate OK)"
 else
@@ -176,7 +176,7 @@ else
 fi
 
 step "Health check — API notificacoes (auth required)"
-HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/notificacoes'")
+HTTP_CODE=$(eval $SSH_CMD "'curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/notificacoes'")
 if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "405" ]; then
   pass "GET /api/notificacoes → $HTTP_CODE (auth gate OK)"
 else
