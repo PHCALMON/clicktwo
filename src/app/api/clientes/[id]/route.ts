@@ -14,15 +14,20 @@ export async function PUT(
 
   const { id } = await params
   const body = await request.json()
-  const { nome } = body
+  const { nome, drive_folder_url } = body
 
   if (!nome?.trim()) {
     return NextResponse.json({ error: 'Nome is required' }, { status: 400 })
   }
 
+  const updateData: { nome: string; drive_folder_url?: string | null } = { nome: nome.trim() }
+  if (drive_folder_url !== undefined) {
+    updateData.drive_folder_url = drive_folder_url?.trim() || null
+  }
+
   const { data: cliente, error: updateError } = await supabase
     .from('clientes')
-    .update({ nome: nome.trim() })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single()

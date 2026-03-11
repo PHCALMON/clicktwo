@@ -1,6 +1,44 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = await request.json()
+  const allowedFields = ['drive_folder_url', 'coluna_id', 'prioridade', 'tags', 'freela_nome', 'freela_funcao', 'data_entrega', 'campanha']
+  const updateData: Record<string, unknown> = {}
+  for (const key of allowedFields) {
+    if (body[key] !== undefined) {
+      updateData[key] = body[key]
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
+
+  const { data: job, error } = await supabase
+    .from('jobs')
+    .update(updateData)
+    .eq('id', params.id)
+    .select('*, cliente:clientes(*)')
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(job)
+}
+
 export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },

@@ -19,6 +19,27 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [novoComentario, setNovoComentario] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [editingDriveUrl, setEditingDriveUrl] = useState(false)
+  const [driveUrlInput, setDriveUrlInput] = useState(job.drive_folder_url ?? '')
+  const [savingDriveUrl, setSavingDriveUrl] = useState(false)
+
+  async function handleSaveDriveUrl() {
+    setSavingDriveUrl(true)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ drive_folder_url: driveUrlInput.trim() || null }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        onUpdate({ ...job, drive_folder_url: updated.drive_folder_url })
+        setEditingDriveUrl(false)
+      }
+    } finally {
+      setSavingDriveUrl(false)
+    }
+  }
 
   function handleAddComment(e: React.FormEvent) {
     e.preventDefault()
@@ -78,18 +99,60 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
               {job.cliente && (
                 <span className="text-sm text-text-muted">{job.cliente.nome}</span>
               )}
-              {job.drive_folder_url && (
-                <a
-                  href={job.drive_folder_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent-hover transition-colors"
+              {!editingDriveUrl ? (
+                <button
+                  onClick={() => { setDriveUrlInput(job.drive_folder_url ?? ''); setEditingDriveUrl(true) }}
+                  className={`inline-flex items-center gap-1 text-xs transition-colors ${
+                    job.drive_folder_url
+                      ? 'text-accent hover:text-accent-hover'
+                      : 'text-text-muted hover:text-text-secondary'
+                  }`}
+                  title={job.drive_folder_url ? 'Editar link do Drive' : 'Adicionar link do Drive'}
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7.71 3.5L1.15 15l4.58 7.5h13.54l4.58-7.5L17.29 3.5H7.71zm-.2 1.5h3.56l-5.38 9.17L4.2 11.5 7.51 5zm4.54 0h3.5L19.8 11.5l-1.49 2.67L12.05 5zm4.72 1.32l3.12 5.35-3.13 5.33H17l3.07-5.33L16.97 6.32zM5.49 6.32L8.62 11.67l-3.13 5.33H3.93l3.12-5.33L5.49 6.32zM6.9 15.5h10.2l-1.73 3H8.63l-1.73-3z"/>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                   </svg>
-                  Google Drive
-                </a>
+                  {job.drive_folder_url ? 'Drive' : '+ Drive'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="url"
+                    value={driveUrlInput}
+                    onChange={(e) => setDriveUrlInput(e.target.value)}
+                    placeholder="Cole a URL da pasta do Drive..."
+                    autoFocus
+                    className="flex-1 px-2 py-1 bg-bg-card border border-border rounded text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveDriveUrl()
+                      if (e.key === 'Escape') setEditingDriveUrl(false)
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveDriveUrl}
+                    disabled={savingDriveUrl}
+                    className="px-2 py-1 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-50"
+                  >
+                    {savingDriveUrl ? '...' : 'OK'}
+                  </button>
+                  {job.drive_folder_url && (
+                    <a
+                      href={job.drive_folder_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:text-accent-hover text-xs"
+                      title="Abrir no Drive"
+                    >
+                      Abrir
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setEditingDriveUrl(false)}
+                    className="text-text-muted hover:text-text-primary text-xs"
+                  >
+                    &times;
+                  </button>
+                </div>
               )}
             </div>
           </div>
