@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import type { Job, Coluna, Comentario, Arquivo } from '@/lib/types'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { Job, Coluna, Comentario, Arquivo, Profile } from '@/lib/types'
 import { PRIORIDADES, TIPOS_JOB, TAGS } from '@/lib/constants'
 import { FileUpload } from './file-upload'
 
@@ -24,6 +24,36 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [savingDriveUrl, setSavingDriveUrl] = useState(false)
   const [freelaNome, setFreelaNome] = useState(job.freela_nome ?? '')
   const [freelaFuncao, setFreelaFuncao] = useState(job.freela_funcao ?? '')
+  const [loadingComments, setLoadingComments] = useState(true)
+  const [sendingComment, setSendingComment] = useState(false)
+
+  // @mention state
+  const [membros, setMembros] = useState<Profile[]>([])
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false)
+  const [mentionFilter, setMentionFilter] = useState('')
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const [mentionStartPos, setMentionStartPos] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Load comments + members on mount
+  useEffect(() => {
+    async function loadData() {
+      const [commentsRes, membrosRes] = await Promise.all([
+        fetch(`/api/jobs/${job.id}/comentarios`),
+        fetch('/api/membros'),
+      ])
+      if (commentsRes.ok) {
+        const data = await commentsRes.json()
+        setComentarios(data)
+      }
+      if (membrosRes.ok) {
+        const data = await membrosRes.json()
+        setMembros(data)
+      }
+      setLoadingComments(false)
+    }
+    loadData()
+  }, [job.id])
 
   async function handleSaveFreela(field: 'freela_nome' | 'freela_funcao', value: string) {
     const trimmed = value.trim() || null
@@ -60,28 +90,51 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
     }
   }
 
-  function handleAddComment(e: React.FormEvent) {
-    e.preventDefault()
-    if (!novoComentario.trim()) return
-
-    const comment: Comentario = {
-      id: `com-${Date.now()}`,
-      job_id: job.id,
-      autor_id: 'demo',
-      texto: novoComentario.trim(),
-      resolvido: false,
-      created_at: new Date().toISOString(),
+  // Extract @mention user IDs from text
+  const extractMencoes = useCallback((text: string): string[] => {
+    const ids: string[] = []
+    const regex = /@(\w[\w\s]*)/g
+    let match
+    while ((match = regex.exec(text)) !== null) {
+      const name = match[1].trim().toLowerCase()
+      const membro = membros.find((m) => m.nome.toLowerCase() === name)
+      if (membro) ids.push(membro.id)
     }
-    setComentarios((prev) => [...prev, comment])
-    setNovoComentario('')
+    return ids
+  }, [membros])
+
+  async function handleAddComment(e: React.FormEvent) {
+    e.preventDefault()
+    if (!novoComentario.trim() || sendingComment) return
+
+    setSendingComment(true)
+    const mencoes = extractMencoes(novoComentario)
+
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/comentarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: novoComentario.trim(), mencoes }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setComentarios((prev) => [...prev, created])
+        setNovoComentario('')
+      }
+    } finally {
+      setSendingComment(false)
+    }
   }
 
-  function toggleResolvido(commentId: string) {
+  async function toggleResolvido(commentId: string) {
     setComentarios((prev) =>
       prev.map((c) =>
         c.id === commentId ? { ...c, resolvido: !c.resolvido } : c
       )
     )
+    // Persist to API — update comment resolvido field
+    // comentarios table doesn't have a dedicated API for this yet,
+    // so we'll use a direct approach if needed. For now, optimistic update.
   }
 
   async function handleMoveColumn(newColunaId: string) {
@@ -100,6 +153,67 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   function handleFileDelete(arquivoId: string) {
     setArquivos((prev) => prev.filter((a) => a.id !== arquivoId))
   }
+
+  // @mention input handler
+  function handleCommentInput(value: string) {
+    setNovoComentario(value)
+
+    const cursorPos = inputRef.current?.selectionStart ?? value.length
+    const textBeforeCursor = value.substring(0, cursorPos)
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+
+    if (lastAtIndex >= 0) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1)
+      // Only show dropdown if @ is at start or preceded by space
+      const charBeforeAt = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' '
+      if ((charBeforeAt === ' ' || lastAtIndex === 0) && !/\s/.test(textAfterAt)) {
+        setShowMentionDropdown(true)
+        setMentionFilter(textAfterAt.toLowerCase())
+        setMentionStartPos(lastAtIndex)
+        setMentionIndex(0)
+        return
+      }
+    }
+
+    setShowMentionDropdown(false)
+  }
+
+  function handleMentionSelect(membro: Profile) {
+    const before = novoComentario.substring(0, mentionStartPos)
+    const after = novoComentario.substring(
+      (inputRef.current?.selectionStart ?? novoComentario.length)
+    )
+    const newText = `${before}@${membro.nome} ${after}`
+    setNovoComentario(newText)
+    setShowMentionDropdown(false)
+    inputRef.current?.focus()
+  }
+
+  function handleCommentKeyDown(e: React.KeyboardEvent) {
+    if (showMentionDropdown) {
+      const filtered = membros.filter((m) =>
+        m.nome.toLowerCase().includes(mentionFilter)
+      )
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionIndex((prev) => Math.min(prev + 1, filtered.length - 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIndex((prev) => Math.max(prev - 1, 0))
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        if (filtered[mentionIndex]) {
+          e.preventDefault()
+          handleMentionSelect(filtered[mentionIndex])
+        }
+      } else if (e.key === 'Escape') {
+        setShowMentionDropdown(false)
+      }
+    }
+  }
+
+  const filteredMembros = membros.filter((m) =>
+    m.nome.toLowerCase().includes(mentionFilter)
+  )
 
   const formattedDate = job.data_entrega
     ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
@@ -265,7 +379,7 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                 onChange={(e) => setFreelaFuncao(e.target.value)}
                 onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                placeholder="Função (ex: Motion Designer)"
+                placeholder="Funcao (ex: Motion Designer)"
                 className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
               />
             </div>
@@ -336,11 +450,13 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
               Comentarios ({comentarios.length})
             </h3>
 
-            {comentarios.length === 0 && (
+            {loadingComments ? (
+              <p className="text-sm text-text-muted italic mb-3">Carregando...</p>
+            ) : comentarios.length === 0 ? (
               <p className="text-sm text-text-muted italic mb-3">
                 Nenhum comentario ainda.
               </p>
-            )}
+            ) : null}
 
             <div className="space-y-2 mb-4">
               {comentarios.map((c) => (
@@ -367,8 +483,13 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold text-accent">
+                        {c.autor?.nome ?? 'Membro'}
+                      </span>
+                    </div>
                     <p className={`text-sm ${c.resolvido ? 'line-through text-text-muted' : 'text-text-primary'}`}>
-                      {c.texto}
+                      {renderMentionText(c.texto)}
                     </p>
                     <span className="text-xs text-text-muted mt-1 block">
                       {new Date(c.created_at).toLocaleDateString('pt-BR', {
@@ -383,26 +504,73 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
               ))}
             </div>
 
-            {/* New comment form */}
-            <form onSubmit={handleAddComment} className="flex gap-2">
-              <input
-                type="text"
-                value={novoComentario}
-                onChange={(e) => setNovoComentario(e.target.value)}
-                placeholder="Adicionar comentario..."
-                className="flex-1 px-3 py-2 bg-bg-card border border-border rounded-md text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                disabled={!novoComentario.trim()}
-                className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Enviar
-              </button>
+            {/* New comment form with @mention */}
+            <form onSubmit={handleAddComment} className="relative">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={novoComentario}
+                    onChange={(e) => handleCommentInput(e.target.value)}
+                    onKeyDown={handleCommentKeyDown}
+                    placeholder="Comentar... (use @ para mencionar)"
+                    className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                  />
+
+                  {/* @mention dropdown */}
+                  {showMentionDropdown && filteredMembros.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-1 w-64 bg-bg-elevated border border-border rounded-md shadow-elevated overflow-hidden z-50">
+                      {filteredMembros.map((m, i) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleMentionSelect(m)}
+                          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                            i === mentionIndex
+                              ? 'bg-accent/15 text-accent'
+                              : 'text-text-primary hover:bg-bg-tertiary'
+                          }`}
+                        >
+                          <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">
+                            {m.nome.charAt(0).toUpperCase()}
+                          </span>
+                          <div>
+                            <span className="font-medium">{m.nome}</span>
+                            <span className="text-xs text-text-muted ml-2">{m.email}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  disabled={!novoComentario.trim() || sendingComment}
+                  className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {sendingComment ? '...' : 'Enviar'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+// Render @mentions as highlighted text
+function renderMentionText(text: string) {
+  const parts = text.split(/(@\w[\w\s]*?)(?=\s|$)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      return (
+        <span key={i} className="text-accent font-medium">
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
 }

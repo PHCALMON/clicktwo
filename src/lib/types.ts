@@ -39,12 +39,35 @@ export interface Job {
   coluna?: Coluna
 }
 
+export interface Profile {
+  id: string
+  nome: string
+  email: string
+  avatar_url: string | null
+  created_at: string
+}
+
 export interface Comentario {
   id: string
   job_id: string
   autor_id: string
   texto: string
   resolvido: boolean
+  mencoes: string[]
+  created_at: string
+  // joined
+  autor?: Profile
+}
+
+export interface Notificacao {
+  id: string
+  user_id: string
+  tipo: string
+  job_id: string | null
+  comentario_id: string | null
+  autor_nome: string | null
+  job_campanha: string | null
+  lida: boolean
   created_at: string
 }
 
