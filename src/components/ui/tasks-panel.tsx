@@ -4,6 +4,30 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Tarefa, Profile } from '@/lib/types'
 
+// Audio context for task notification sound
+let audioCtx: AudioContext | null = null
+function getAudioContext(): AudioContext {
+  if (!audioCtx) audioCtx = new AudioContext()
+  if (audioCtx.state === 'suspended') audioCtx.resume()
+  return audioCtx
+}
+function playTaskSound() {
+  try {
+    const ctx = getAudioContext()
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = 660
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  } catch { /* Audio not available */ }
+}
+
 interface TasksPanelContentProps {
   visible: boolean
   onCountChange: (count: number) => void
@@ -59,6 +83,9 @@ export function TasksPanelContent({ visible, onCountChange }: TasksPanelContentP
         const t = payload.new as Tarefa
         if (t.criado_por === currentUserId || t.atribuido_a === currentUserId) {
           setTarefas((prev) => prev.some((x) => x.id === t.id) ? prev : [t, ...prev])
+          if (t.atribuido_a === currentUserId && t.criado_por !== currentUserId) {
+            playTaskSound()
+          }
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tarefas' }, (payload) => {
