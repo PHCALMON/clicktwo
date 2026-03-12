@@ -33,5 +33,7 @@ export const TAGS: Record<TagJob, { label: string; color: string }> = {
   color: { label: 'Color', color: '#D97706' },
   mix: { label: 'Mix', color: '#06B6D4' },
   em_aprovacao: { label: 'Em Aprovação', color: '#F97316' },
+  refacao: { label: 'Refação', color: '#EF4444' },
+  em_ajuste: { label: 'Em Ajuste', color: '#F59E0B' },
   aprovado: { label: 'Aprovado', color: '#22C55E' },
 }

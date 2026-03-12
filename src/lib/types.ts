@@ -4,7 +4,7 @@ export type Prioridade = 'urgente' | 'alta' | 'normal'
 
 export type TipoJob = 'publicidade' | 'institucional' | 'social' | 'ia' | 'varejo'
 
-export type TagJob = 'falta_material' | 'arte' | 'edicao' | 'motion' | 'ai_gen_still' | 'ai_gen_video' | 'ai_gen_upscale' | 'color' | 'mix' | 'em_aprovacao' | 'aprovado'
+export type TagJob = 'falta_material' | 'arte' | 'edicao' | 'motion' | 'ai_gen_still' | 'ai_gen_video' | 'ai_gen_upscale' | 'color' | 'mix' | 'em_aprovacao' | 'refacao' | 'em_ajuste' | 'aprovado'
 
 export interface Coluna {
   id: string
