@@ -2,18 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { Job, Coluna, Comentario, Arquivo, Profile, Entrega, TagJob } from '@/lib/types'
-import { PRIORIDADES, TIPOS_JOB, TAGS } from '@/lib/constants'
+import { TIPOS_JOB, TAGS } from '@/lib/constants'
+import { calcPrioridade, calcJobPrioridade } from '@/lib/priority'
 import { FileUpload } from './file-upload'
 
 interface JobDetailModalProps {
   job: Job
   colunas: Coluna[]
+  currentUserId: string
   onClose: () => void
   onUpdate: (job: Job) => void
   onDelete?: (jobId: string) => void
+  onEmProducaoToggle?: (jobId: string) => void
 }
 
-export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: JobDetailModalProps) {
+export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate, onDelete, onEmProducaoToggle }: JobDetailModalProps) {
   const [comentarios, setComentarios] = useState<Comentario[]>([])
   const [arquivos, setArquivos] = useState<Arquivo[]>([])
   const [novoComentario, setNovoComentario] = useState('')
@@ -33,6 +36,14 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [novaEntregaTag, setNovaEntregaTag] = useState<TagJob | ''>('')
   const [addingEntrega, setAddingEntrega] = useState(false)
 
+  const [novaEntregaData, setNovaEntregaData] = useState('')
+  const [novaEntregaHora, setNovaEntregaHora] = useState('')
+  const [novaEntregaMargem, setNovaEntregaMargem] = useState('4')
+
+  // Job-level deadline state
+  const [jobHora, setJobHora] = useState(job.hora_entrega_cliente ?? '')
+  const [jobMargem, setJobMargem] = useState(String(job.margem_horas ?? 4))
+
   // Tag editing state
   const [showTagPicker, setShowTagPicker] = useState(false)
   const [editingEntregaTagId, setEditingEntregaTagId] = useState<string | null>(null)
@@ -45,6 +56,12 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
   const [mentionIndex, setMentionIndex] = useState(0)
   const [mentionStartPos, setMentionStartPos] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync entregas back to parent job for priority recalculation
+  useEffect(() => {
+    onUpdate({ ...job, entregas })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entregas])
 
   // Load comments + members on mount
   useEffect(() => {
@@ -185,6 +202,9 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
         body: JSON.stringify({
           nome: novaEntregaNome.trim(),
           tag: novaEntregaTag || null,
+          data_entrega: novaEntregaData || null,
+          hora_entrega_cliente: novaEntregaHora || null,
+          margem_horas: parseInt(novaEntregaMargem) || 4,
         }),
       })
       if (res.ok) {
@@ -192,6 +212,9 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
         setEntregas((prev) => [...prev, created])
         setNovaEntregaNome('')
         setNovaEntregaTag('')
+        setNovaEntregaData('')
+        setNovaEntregaHora('')
+        setNovaEntregaMargem('4')
       } else {
         console.error('[entregas] Erro ao criar:', res.status, await res.text())
       }
@@ -237,6 +260,40 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tags: next }),
+    })
+  }
+
+  async function handleSaveJobDeadline(field: 'hora_entrega_cliente' | 'margem_horas', value: string) {
+    const payload: Record<string, unknown> = {}
+    if (field === 'hora_entrega_cliente') {
+      payload.hora_entrega_cliente = value || null
+    } else {
+      payload.margem_horas = value ? parseInt(value) : 4
+    }
+    const updated = { ...job, ...payload }
+    onUpdate(updated as Job)
+    await fetch(`/api/jobs/${job.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async function updateEntregaDeadline(entregaId: string, fields: { hora_entrega_cliente?: string | null; margem_horas?: number }) {
+    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, ...fields } : e))
+    await fetch(`/api/jobs/${job.id}/entregas`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entrega_id: entregaId, ...fields }),
+    })
+  }
+
+  async function updateEntregaDate(entregaId: string, data_entrega: string | null) {
+    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, data_entrega } : e))
+    await fetch(`/api/jobs/${job.id}/entregas`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entrega_id: entregaId, data_entrega }),
     })
   }
 
@@ -438,21 +495,108 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
             </div>
             <div>
               <span className="text-xs text-text-muted block mb-1">Prioridade</span>
-              <div className="flex items-center gap-2 px-2 py-1.5">
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: PRIORIDADES[job.prioridade].color }}
-                />
-                <span className="text-sm text-text-secondary">
-                  {PRIORIDADES[job.prioridade].label}
-                </span>
-              </div>
+              {(() => {
+                const prio = calcJobPrioridade(job.data_entrega, entregas, job.hora_entrega_cliente, job.margem_horas)
+                return (
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full${prio.pulse ? ' animate-pulse' : ''}`}
+                      style={{ backgroundColor: prio.color }}
+                    />
+                    <span className="text-sm text-text-secondary">{prio.label}</span>
+                    {prio.countdown && (
+                      <span className="text-xs font-mono font-semibold" style={{ color: prio.color }}>
+                        {prio.countdown}
+                      </span>
+                    )}
+                    {prio.entregasTotal > 0 && (
+                      <span className="text-xs text-text-muted">
+                        &middot; {prio.entregasConcluidas}/{prio.entregasTotal}
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <div>
               <span className="text-xs text-text-muted block mb-1">Entrega</span>
               <p className="text-sm text-text-secondary px-2 py-1.5">{formattedDate}</p>
             </div>
           </div>
+
+          {/* Prazo do cliente: hora + margem */}
+          <div>
+            <span className="text-xs text-text-muted block mb-2">Prazo do Cliente (horario + margem revisao)</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-text-muted">Hora:</span>
+                <input
+                  type="time"
+                  value={jobHora}
+                  onChange={(e) => {
+                    setJobHora(e.target.value)
+                    handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
+                  }}
+                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-text-muted">Margem:</span>
+                <select
+                  value={jobMargem}
+                  onChange={(e) => {
+                    setJobMargem(e.target.value)
+                    handleSaveJobDeadline('margem_horas', e.target.value)
+                  }}
+                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="0">Sem margem</option>
+                  <option value="2">2h antes</option>
+                  <option value="4">4h antes</option>
+                  <option value="6">6h antes</option>
+                  <option value="8">8h antes</option>
+                </select>
+              </div>
+              {jobHora && (
+                <span className="text-xs text-text-muted italic">
+                  Cliente: {jobHora} &rarr; Time ve o prazo interno
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Em Producao toggle */}
+          {onEmProducaoToggle && (
+            <div>
+              <span className="text-xs text-text-muted block mb-2">Producao</span>
+              <button
+                onClick={() => onEmProducaoToggle(job.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all border ${
+                  job.em_producao_por === currentUserId
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                    : 'bg-bg-card border-border text-text-secondary hover:border-accent hover:text-accent'
+                }`}
+              >
+                {job.em_producao_por === currentUserId ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    Produzindo — Parar
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-text-muted" />
+                    Estou fazendo este job
+                  </>
+                )}
+              </button>
+              {job.em_producao_por && job.em_producao_por !== currentUserId && (
+                <p className="text-xs text-text-muted mt-1">Outro membro esta produzindo este job</p>
+              )}
+            </div>
+          )}
 
           {/* Tags — editable */}
           <div className="relative">
@@ -577,6 +721,44 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
                     <span className={`text-sm flex-1 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
                       {entrega.nome}
                     </span>
+                    {/* Deadline per entrega */}
+                    {(() => {
+                      const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
+                      return (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <input
+                            type="date"
+                            value={entrega.data_entrega ?? ''}
+                            onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
+                            className="w-[100px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                          />
+                          <input
+                            type="time"
+                            value={entrega.hora_entrega_cliente ?? ''}
+                            onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
+                            className="w-[70px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                            title="Hora do cliente"
+                          />
+                          <select
+                            value={String(entrega.margem_horas ?? 4)}
+                            onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
+                            className="w-[52px] px-0.5 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent"
+                            title="Margem de revisao"
+                          >
+                            <option value="0">0h</option>
+                            <option value="2">-2h</option>
+                            <option value="4">-4h</option>
+                            <option value="6">-6h</option>
+                            <option value="8">-8h</option>
+                          </select>
+                          {ep && ep.countdown && (
+                            <span className="text-[10px] font-mono font-semibold" style={{ color: ep.color }}>
+                              {ep.countdown}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                     <div className="relative">
                       <button
                         onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
@@ -644,14 +826,40 @@ export function JobDetailModal({ job, colunas, onClose, onUpdate, onDelete }: Jo
               </div>
             )}
 
-            <form onSubmit={handleAddEntrega} className="flex items-center gap-2">
+            <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap">
               <input
                 type="text"
                 value={novaEntregaNome}
                 onChange={(e) => setNovaEntregaNome(e.target.value)}
                 placeholder="Nome da entrega..."
-                className="flex-1 px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                className="flex-1 min-w-[120px] px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
               />
+              <input
+                type="date"
+                value={novaEntregaData}
+                onChange={(e) => setNovaEntregaData(e.target.value)}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                title="Data de entrega"
+              />
+              <input
+                type="time"
+                value={novaEntregaHora}
+                onChange={(e) => setNovaEntregaHora(e.target.value)}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                title="Hora do cliente"
+              />
+              <select
+                value={novaEntregaMargem}
+                onChange={(e) => setNovaEntregaMargem(e.target.value)}
+                className="px-1 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
+                title="Margem"
+              >
+                <option value="0">0h</option>
+                <option value="2">-2h</option>
+                <option value="4">-4h</option>
+                <option value="6">-6h</option>
+                <option value="8">-8h</option>
+              </select>
               <select
                 value={novaEntregaTag}
                 onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}

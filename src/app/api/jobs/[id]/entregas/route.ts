@@ -37,7 +37,7 @@ export async function POST(
   }
 
   const body = await request.json()
-  const { nome, tag } = body
+  const { nome, tag, data_entrega, hora_entrega_cliente, margem_horas } = body
 
   if (!nome?.trim()) {
     return NextResponse.json({ error: 'Nome is required' }, { status: 400 })
@@ -55,6 +55,9 @@ export async function POST(
       job_id: params.id,
       nome: nome.trim(),
       tag: tag || null,
+      data_entrega: data_entrega || null,
+      hora_entrega_cliente: hora_entrega_cliente || null,
+      margem_horas: margem_horas !== undefined ? margem_horas : 4,
       posicao: count ?? 0,
     })
     .select('*')
@@ -79,7 +82,7 @@ export async function PUT(
   }
 
   const body = await request.json()
-  const { entrega_id, concluida, nome, tag } = body
+  const { entrega_id, concluida, nome, tag, data_entrega, hora_entrega_cliente, margem_horas } = body
 
   if (!entrega_id) {
     return NextResponse.json({ error: 'entrega_id required' }, { status: 400 })
@@ -89,6 +92,9 @@ export async function PUT(
   if (typeof concluida === 'boolean') updateData.concluida = concluida
   if (nome !== undefined) updateData.nome = nome.trim()
   if (tag !== undefined) updateData.tag = tag || null
+  if (data_entrega !== undefined) updateData.data_entrega = data_entrega || null
+  if (hora_entrega_cliente !== undefined) updateData.hora_entrega_cliente = hora_entrega_cliente || null
+  if (margem_horas !== undefined) updateData.margem_horas = margem_horas
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

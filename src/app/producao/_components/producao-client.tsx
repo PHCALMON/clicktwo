@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import type { Coluna, Job, Cliente } from '@/lib/types'
-import { PRIORIDADES, TAGS } from '@/lib/constants'
+import { TAGS } from '@/lib/constants'
+import { calcJobPrioridade } from '@/lib/priority'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 
 interface ProducaoClientProps {
@@ -111,7 +112,7 @@ export function ProducaoClient({ colunas, jobs: initialJobs, clientes: initialCl
             )}
             {filteredJobs.map((job) => {
               const coluna = colunasMap[job.coluna_id]
-              const prioConfig = PRIORIDADES[job.prioridade]
+              const prioConfig = calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas)
               const formattedDate = job.data_entrega
                 ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
                     day: '2-digit',

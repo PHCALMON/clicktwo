@@ -13,17 +13,27 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { status } = body as { status: StatusMembro }
+  const { status, texto } = body as { status: StatusMembro; texto?: string }
 
   if (!status || !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: 'Status invalido' }, { status: 400 })
   }
 
+  const updateData: Record<string, unknown> = {
+    status,
+    status_updated_at: new Date().toISOString(),
+  }
+
+  // Save status_texto for any status (useful for "estudando")
+  if (texto !== undefined) {
+    updateData.status_texto = texto || null
+  }
+
   const { data, error } = await supabase
     .from('profiles')
-    .update({ status, status_updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', user.id)
-    .select('id, nome, email, avatar_url, status, status_updated_at')
+    .select('id, nome, email, avatar_url, status, status_texto, status_updated_at')
     .single()
 
   if (error) {

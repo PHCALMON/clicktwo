@@ -7,7 +7,7 @@ export default async function ProducaoPage() {
 
   const [colunasRes, jobsRes, clientesRes] = await Promise.all([
     supabase.from('colunas').select('*').order('posicao'),
-    supabase.from('jobs').select('*, cliente:clientes(*)').order('created_at', { ascending: false }),
+    supabase.from('jobs').select('*, cliente:clientes(*), entregas(*)').order('created_at', { ascending: false }),
     supabase.from('clientes').select('*').order('nome'),
   ])
 

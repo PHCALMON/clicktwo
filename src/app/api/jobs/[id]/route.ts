@@ -13,7 +13,7 @@ export async function PUT(
   }
 
   const body = await request.json()
-  const allowedFields = ['drive_folder_url', 'coluna_id', 'posicao', 'prioridade', 'tags', 'freela_nome', 'freela_funcao', 'data_entrega', 'campanha']
+  const allowedFields = ['drive_folder_url', 'coluna_id', 'posicao', 'prioridade', 'tags', 'freela_nome', 'freela_funcao', 'data_entrega', 'hora_entrega_cliente', 'margem_horas', 'campanha', 'em_producao_por']
   const updateData: Record<string, unknown> = {}
   for (const key of allowedFields) {
     if (body[key] !== undefined) {
@@ -23,6 +23,16 @@ export async function PUT(
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
+
+  // When setting em_producao_por, clear it from other jobs of the same user
+  if (updateData.em_producao_por) {
+    const userId = updateData.em_producao_por as string
+    await supabase
+      .from('jobs')
+      .update({ em_producao_por: null })
+      .eq('em_producao_por', userId)
+      .neq('id', params.id)
   }
 
   const { data: job, error } = await supabase

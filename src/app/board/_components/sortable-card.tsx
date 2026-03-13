@@ -1,16 +1,15 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { Job, TagJob, Prioridade } from '@/lib/types'
+import type { Job, TagJob } from '@/lib/types'
 import { KanbanCard } from './kanban-card'
 
 interface SortableCardProps {
   job: Job
   onClick?: () => void
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
-  onPriorityChange?: (jobId: string, prioridade: Prioridade) => void
 }
 
-export function SortableCard({ job, onClick, onTagsChange, onPriorityChange }: SortableCardProps) {
+export function SortableCard({ job, onClick, onTagsChange }: SortableCardProps) {
   const {
     attributes,
     listeners,
@@ -34,7 +33,7 @@ export function SortableCard({ job, onClick, onTagsChange, onPriorityChange }: S
       {...listeners}
       onClick={onClick}
     >
-      <KanbanCard job={job} onTagsChange={onTagsChange} onPriorityChange={onPriorityChange} />
+      <KanbanCard job={job} onTagsChange={onTagsChange} />
     </div>
   )
 }

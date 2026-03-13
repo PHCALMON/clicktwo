@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import type { Coluna, Cliente, TipoJob, Prioridade, TagJob, Job } from '@/lib/types'
-import { TIPOS_JOB, PRIORIDADES, TAGS } from '@/lib/constants'
+import { useState, useMemo } from 'react'
+import type { Coluna, Cliente, TipoJob, TagJob, Job } from '@/lib/types'
+import { TIPOS_JOB, TAGS } from '@/lib/constants'
+import { calcPrioridade } from '@/lib/priority'
 
 interface NewJobModalProps {
   colunas: Coluna[]
@@ -21,8 +22,15 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
   const [tipoJob, setTipoJob] = useState<TipoJob>('publicidade')
   const [colunaId, setColunaId] = useState(colunas[0]?.id ?? '')
   const [dataEntrega, setDataEntrega] = useState('')
-  const [prioridade, setPrioridade] = useState<Prioridade>('normal')
+  const [horaCliente, setHoraCliente] = useState('')
+  const [margemHoras, setMargemHoras] = useState('4')
   const [selectedTags, setSelectedTags] = useState<TagJob[]>([])
+
+  const prioPreview = useMemo(
+    () => calcPrioridade(dataEntrega || null, horaCliente || null, parseInt(margemHoras) || null),
+    [dataEntrega, horaCliente, margemHoras],
+  )
+
   function toggleTag(tag: TagJob) {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
@@ -37,7 +45,9 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
       tipo_job: tipoJob,
       coluna_id: colunaId,
       data_entrega: dataEntrega || null,
-      prioridade,
+      hora_entrega_cliente: horaCliente || null,
+      margem_horas: parseInt(margemHoras) || 4,
+      prioridade: 'normal',
       tags: selectedTags,
       drive_folder_url: null,
     })
@@ -127,7 +137,7 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
               value={campanha}
               onChange={(e) => setCampanha(e.target.value)}
               required
-              placeholder="Ex: Campanha XP, Vídeo institucional..."
+              placeholder="Ex: Campanha XP, Video institucional..."
               className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
             />
           </div>
@@ -160,29 +170,59 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
             </div>
           </div>
 
-          {/* Data + Prioridade */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Data de Entrega</label>
+          {/* Data de Entrega + Hora + Margem + Preview */}
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">Prazo de Entrega</label>
+            <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="date"
                 value={dataEntrega}
                 onChange={(e) => setDataEntrega(e.target.value)}
-                className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-text-primary focus:outline-none focus:border-accent"
+                required
+                className="flex-1 min-w-[140px] px-3 py-2 bg-bg-card border border-border rounded-md text-text-primary focus:outline-none focus:border-accent"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-1">Prioridade</label>
+              <input
+                type="time"
+                value={horaCliente}
+                onChange={(e) => setHoraCliente(e.target.value)}
+                placeholder="Hora"
+                className="px-2 py-2 bg-bg-card border border-border rounded-md text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
+                title="Hora que o cliente precisa receber"
+              />
               <select
-                value={prioridade}
-                onChange={(e) => setPrioridade(e.target.value as Prioridade)}
-                className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-text-primary focus:outline-none focus:border-accent"
+                value={margemHoras}
+                onChange={(e) => setMargemHoras(e.target.value)}
+                className="px-2 py-2 bg-bg-card border border-border rounded-md text-sm text-text-primary focus:outline-none focus:border-accent"
+                title="Margem de revisao"
               >
-                {Object.entries(PRIORIDADES).map(([value, config]) => (
-                  <option key={value} value={value}>{config.label}</option>
-                ))}
+                <option value="0">Sem margem</option>
+                <option value="2">-2h</option>
+                <option value="4">-4h</option>
+                <option value="6">-6h</option>
+                <option value="8">-8h</option>
               </select>
+              {dataEntrega && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs" style={{ backgroundColor: `${prioPreview.color}15` }}>
+                  <span
+                    className={`w-2 h-2 rounded-full${prioPreview.pulse ? ' animate-pulse' : ''}`}
+                    style={{ backgroundColor: prioPreview.color }}
+                  />
+                  <span style={{ color: prioPreview.color }} className="font-medium">
+                    {prioPreview.label}
+                  </span>
+                  {prioPreview.countdown && (
+                    <span style={{ color: prioPreview.color }} className="font-mono font-semibold">
+                      {prioPreview.countdown}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
+            {horaCliente && (
+              <p className="text-xs text-text-muted mt-1">
+                Cliente: {horaCliente} &rarr; Prazo interno: {margemHoras !== '0' ? `-${margemHoras}h (com clamp horario comercial)` : 'mesmo horario'}
+              </p>
+            )}
           </div>
 
           {/* Tags */}

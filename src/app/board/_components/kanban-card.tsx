@@ -1,19 +1,23 @@
 'use client'
 
-import { useState } from 'react'
-import type { Job, TagJob, Prioridade } from '@/lib/types'
-import { TAGS, PRIORIDADES } from '@/lib/constants'
+import { useState, useMemo } from 'react'
+import type { Job, TagJob } from '@/lib/types'
+import { TAGS } from '@/lib/constants'
+import { calcJobPrioridade } from '@/lib/priority'
 import { TagBadge } from './tag-badge'
 
 interface KanbanCardProps {
   job: Job
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
-  onPriorityChange?: (jobId: string, prioridade: Prioridade) => void
 }
 
-export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardProps) {
+export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
   const [showPicker, setShowPicker] = useState(false)
-  const [showPriorityPicker, setShowPriorityPicker] = useState(false)
+
+  const prio = useMemo(
+    () => calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas),
+    [job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas],
+  )
 
   const formattedDate = job.data_entrega
     ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
@@ -49,51 +53,40 @@ export function KanbanCard({ job, onTagsChange, onPriorityChange }: KanbanCardPr
         </div>
       )}
 
+      {/* Em Producao badge */}
+      {job.em_producao_por && (
+        <div className="flex items-center gap-1.5 mb-2 px-1.5 py-1 bg-emerald-500/10 rounded text-xs">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          <span className="text-emerald-400 font-medium">Produzindo</span>
+        </div>
+      )}
+
       <div
         className="flex items-center justify-between mb-2"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div className="relative">
-          <button
-            onClick={() => onPriorityChange && setShowPriorityPicker((v) => !v)}
-            className={`flex items-center gap-1.5 text-xs ${onPriorityChange ? 'cursor-pointer hover:opacity-80' : ''}`}
-          >
+        <div className="flex items-center gap-1.5 text-xs">
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0${prio.pulse ? ' animate-pulse' : ''}`}
+            style={{ backgroundColor: prio.color }}
+          />
+          <span className="text-text-secondary">{prio.label}</span>
+          {prio.countdown && (
             <span
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: PRIORIDADES[job.prioridade].color }}
-            />
-            <span className="text-text-secondary">{PRIORIDADES[job.prioridade].label}</span>
-          </button>
-
-          {showPriorityPicker && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowPriorityPicker(false)} />
-              <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-1 w-32">
-                {(Object.entries(PRIORIDADES) as [Prioridade, { label: string; color: string }][]).map(
-                  ([value, config]) => (
-                    <button
-                      key={value}
-                      onClick={() => {
-                        onPriorityChange?.(job.id, value)
-                        setShowPriorityPicker(false)
-                      }}
-                      className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-left transition-colors ${
-                        job.prioridade === value ? 'bg-bg-card' : 'hover:bg-bg-card'
-                      }`}
-                    >
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: config.color }}
-                      />
-                      <span className={job.prioridade === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
-                        {config.label}
-                      </span>
-                    </button>
-                  )
-                )}
-              </div>
-            </>
+              className="font-mono font-semibold text-[10px]"
+              style={{ color: prio.color }}
+            >
+              {prio.countdown}
+            </span>
+          )}
+          {prio.entregasTotal > 0 && (
+            <span className="text-text-muted text-[10px]">
+              &middot; {prio.entregasConcluidas}/{prio.entregasTotal} entregas
+            </span>
           )}
         </div>
         {formattedDate && (

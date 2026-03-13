@@ -29,8 +29,11 @@ export interface Job {
   coluna_id: string
   posicao: number
   data_entrega: string | null
+  hora_entrega_cliente: string | null
+  margem_horas: number | null
   prioridade: Prioridade
   tags: TagJob[]
+  em_producao_por: string | null
   drive_folder_url: string | null
   freela_nome: string | null
   freela_funcao: string | null
@@ -39,6 +42,7 @@ export interface Job {
   // joined
   cliente?: Cliente
   coluna?: Coluna
+  entregas?: Entrega[]
   // aggregated
   entregas_total?: number
   entregas_concluidas?: number
@@ -50,6 +54,7 @@ export interface Profile {
   email: string
   avatar_url: string | null
   status: StatusMembro
+  status_texto: string | null
   status_updated_at: string
   created_at: string
 }
@@ -85,6 +90,9 @@ export interface Entrega {
   tag: TagJob | null
   concluida: boolean
   posicao: number
+  data_entrega: string | null
+  hora_entrega_cliente: string | null
+  margem_horas: number | null
   created_at: string
 }
 

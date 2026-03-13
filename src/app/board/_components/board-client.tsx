@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import type { Coluna, Job, Cliente, TagJob, Prioridade, Profile, StatusMembro } from '@/lib/types'
+import type { Coluna, Job, Cliente, TagJob, Profile, StatusMembro } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { KanbanBoard } from './kanban-board'
 import { JobListView } from './job-list-view'
@@ -113,7 +113,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           return [...prev, jobWithCliente]
         })
       } else if (payload.eventType === 'UPDATE') {
-        setJobs((prev) => prev.map((j) => (j.id === payload.new.id ? { ...j, ...payload.new, cliente: j.cliente } : j)))
+        setJobs((prev) => prev.map((j) => (j.id === payload.new.id ? { ...j, ...payload.new, cliente: j.cliente, entregas: j.entregas } : j)))
       } else if (payload.eventType === 'DELETE') {
         setJobs((prev) => prev.filter((j) => j.id !== payload.old.id))
       }
@@ -139,12 +139,12 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const isDemoMode = typeof window !== 'undefined' &&
     process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
 
-  const handleJobMove = useCallback(async (jobId: string, newColunaId: string, newPosicao: number) => {
+  const handleBatchReorder = useCallback(async (items: { id: string; coluna_id: string; posicao: number }[]) => {
     if (isDemoMode) return
-    await fetch(`/api/jobs/${jobId}`, {
+    await fetch('/api/jobs/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coluna_id: newColunaId, posicao: newPosicao }),
+      body: JSON.stringify({ jobs: items }),
     })
   }, [isDemoMode])
 
@@ -162,8 +162,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         coluna_id: jobData.coluna_id ?? colunas[0]?.id ?? '',
         posicao: jobs.filter((j) => j.coluna_id === jobData.coluna_id).length,
         data_entrega: jobData.data_entrega ?? null,
+        hora_entrega_cliente: jobData.hora_entrega_cliente ?? null,
+        margem_horas: jobData.margem_horas ?? 4,
         prioridade: jobData.prioridade ?? 'normal',
         tags: jobData.tags ?? [],
+        em_producao_por: null,
         drive_folder_url: null,
         freela_nome: null,
         freela_funcao: null,
@@ -212,16 +215,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     }
   }, [isDemoMode])
 
-  const handlePriorityChange = useCallback(async (jobId: string, prioridade: Prioridade) => {
-    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, prioridade } : j)))
-    if (!isDemoMode) {
-      await fetch(`/api/jobs/${jobId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prioridade }),
-      })
-    }
-  }, [isDemoMode])
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     if (isDemoMode) {
@@ -235,17 +228,40 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setSelectedJob(null)
   }, [isDemoMode])
 
-  const handleStatusChange = useCallback(async (status: StatusMembro) => {
+  const handleStatusChange = useCallback(async (status: StatusMembro, texto?: string) => {
     // Optimistic update
-    setMembrosList((prev) => prev.map((m) => (m.id === currentUserId ? { ...m, status } : m)))
+    setMembrosList((prev) => prev.map((m) => (m.id === currentUserId ? { ...m, status, status_texto: texto ?? m.status_texto } : m)))
     if (!isDemoMode) {
       await fetch('/api/membros/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, texto }),
       })
     }
   }, [isDemoMode, currentUserId])
+
+  const handleEmProducaoToggle = useCallback(async (jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId)
+    if (!job) return
+
+    const isCurrentlyActive = job.em_producao_por === currentUserId
+    const newValue = isCurrentlyActive ? null : currentUserId
+
+    // Optimistic: clear from all jobs of this user, then set the new one
+    setJobs((prev) => prev.map((j) => {
+      if (j.em_producao_por === currentUserId) return { ...j, em_producao_por: null }
+      if (j.id === jobId && !isCurrentlyActive) return { ...j, em_producao_por: currentUserId }
+      return j
+    }))
+
+    if (!isDemoMode) {
+      await fetch(`/api/jobs/${jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ em_producao_por: newValue }),
+      })
+    }
+  }, [isDemoMode, currentUserId, jobs])
 
   const handleAddColumn = useCallback((nome: string, cor: string | null) => {
     const maxPos = Math.max(...colunas.map((c) => c.posicao), -1)
@@ -311,6 +327,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
       {membrosList.length > 0 && (
         <TeamStatusBar
           membros={membrosList}
+          jobs={jobs}
           currentUserId={currentUserId}
           onStatusChange={handleStatusChange}
         />
@@ -365,11 +382,10 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
             <KanbanBoard
               colunas={colunas}
               jobs={filteredJobs}
-              onJobMove={handleJobMove}
               onJobsReorder={handleJobsReorder}
+              onBatchReorder={handleBatchReorder}
               onJobClick={handleJobClick}
               onTagsChange={handleTagsChange}
-              onPriorityChange={handlePriorityChange}
               onAddColumn={handleAddColumn}
             />
           </div>
@@ -408,9 +424,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         <JobDetailModal
           job={selectedJob}
           colunas={colunas}
+          currentUserId={currentUserId}
           onClose={() => setSelectedJob(null)}
           onUpdate={handleJobUpdate}
           onDelete={handleDeleteJob}
+          onEmProducaoToggle={handleEmProducaoToggle}
         />
       )}
     </>

@@ -28,42 +28,42 @@ const DEMO_JOBS: Job[] = [
   {
     id: 'j1', cliente_id: 'c1', campanha: 'Campanha XP', tipo_job: 'publicidade',
     coluna_id: '1', posicao: 0, data_entrega: '2026-03-12', prioridade: 'urgente',
-    tags: ['edicao'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['edicao'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c1', nome: 'Banco XP', drive_folder_url: null, created_at: '' },
   },
   {
     id: 'j2', cliente_id: 'c2', campanha: 'Vídeo Institucional', tipo_job: 'institucional',
     coluna_id: '1', posicao: 1, data_entrega: '2026-03-20', prioridade: 'normal',
-    tags: ['falta_material'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['falta_material'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c2', nome: 'Natura', drive_folder_url: null, created_at: '' },
   },
   {
     id: 'j3', cliente_id: 'c3', campanha: 'Logo Animado', tipo_job: 'publicidade',
     coluna_id: '2', posicao: 0, data_entrega: '2026-03-15', prioridade: 'alta',
-    tags: ['motion', 'arte'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['motion', 'arte'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c3', nome: 'Itaú', drive_folder_url: null, created_at: '' },
   },
   {
     id: 'j4', cliente_id: 'c1', campanha: 'Reels Q1', tipo_job: 'social',
     coluna_id: '3', posicao: 0, data_entrega: '2026-03-18', prioridade: 'alta',
-    tags: ['edicao', 'color'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['edicao', 'color'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c1', nome: 'Banco XP', drive_folder_url: null, created_at: '' },
   },
   {
     id: 'j5', cliente_id: 'c4', campanha: 'Spot 30s', tipo_job: 'publicidade',
     coluna_id: '10', posicao: 0, data_entrega: '2026-03-14', prioridade: 'urgente',
-    tags: ['mix', 'em_aprovacao'], drive_folder_url: null, freela_nome: 'Lucas Silva', freela_funcao: 'Motion Designer',
+    tags: ['mix', 'em_aprovacao'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: 'Lucas Silva', freela_funcao: 'Motion Designer',
     created_at: '', created_by: '',
     cliente: { id: 'c4', nome: 'Ambev', drive_folder_url: null, created_at: '' },
   },
   {
     id: 'j6', cliente_id: 'c5', campanha: 'Catálogo IA', tipo_job: 'varejo',
     coluna_id: '8', posicao: 0, data_entrega: '2026-03-11', prioridade: 'normal',
-    tags: ['aprovado'], drive_folder_url: null, freela_nome: null, freela_funcao: null,
+    tags: ['aprovado'], em_producao_por: null, hora_entrega_cliente: null, margem_horas: 4, drive_folder_url: null, freela_nome: null, freela_funcao: null,
     created_at: '', created_by: '',
     cliente: { id: 'c5', nome: 'Magazine Luiza', drive_folder_url: null, created_at: '' },
   },
@@ -82,9 +82,9 @@ export default async function BoardPage() {
 
     const [colunasRes, jobsRes, clientesRes, membrosRes, userRes] = await Promise.all([
       supabase.from('colunas').select('*').order('posicao'),
-      supabase.from('jobs').select('*, cliente:clientes(*)').order('posicao'),
+      supabase.from('jobs').select('*, cliente:clientes(*), entregas(*)').order('posicao'),
       supabase.from('clientes').select('*').order('nome'),
-      supabase.from('profiles').select('id, nome, email, avatar_url, status, status_updated_at').order('nome'),
+      supabase.from('profiles').select('id, nome, email, avatar_url, status, status_texto, status_updated_at').order('nome'),
       supabase.auth.getUser(),
     ])
 

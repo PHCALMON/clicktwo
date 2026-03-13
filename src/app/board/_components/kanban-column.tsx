@@ -1,6 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { Coluna, Job, TagJob, Prioridade } from '@/lib/types'
+import type { Coluna, Job, TagJob } from '@/lib/types'
 import { SortableCard } from './sortable-card'
 
 interface KanbanColumnProps {
@@ -8,10 +8,9 @@ interface KanbanColumnProps {
   jobs: Job[]
   onJobClick?: (job: Job) => void
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
-  onPriorityChange?: (jobId: string, prioridade: Prioridade) => void
 }
 
-export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange, onPriorityChange }: KanbanColumnProps) {
+export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id })
 
   return (
@@ -44,7 +43,7 @@ export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange, onPriorit
           }}
         >
           {jobs.map((job) => (
-            <SortableCard key={job.id} job={job} onClick={() => onJobClick?.(job)} onTagsChange={onTagsChange} onPriorityChange={onPriorityChange} />
+            <SortableCard key={job.id} job={job} onClick={() => onJobClick?.(job)} onTagsChange={onTagsChange} />
           ))}
         </div>
       </SortableContext>

@@ -14,22 +14,21 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import type { Coluna, Job, TagJob, Prioridade } from '@/lib/types'
+import type { Coluna, Job, TagJob } from '@/lib/types'
 import { KanbanColumn } from './kanban-column'
 import { KanbanCard } from './kanban-card'
 
 interface KanbanBoardProps {
   colunas: Coluna[]
   jobs: Job[]
-  onJobMove?: (jobId: string, newColunaId: string, newPosicao: number) => void
   onJobsReorder?: (updatedJobs: Job[]) => void
+  onBatchReorder?: (items: { id: string; coluna_id: string; posicao: number }[]) => void
   onJobClick?: (job: Job) => void
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
-  onPriorityChange?: (jobId: string, prioridade: Prioridade) => void
   onAddColumn?: (nome: string, cor: string | null) => void
 }
 
-export function KanbanBoard({ colunas, jobs, onJobMove, onJobsReorder, onJobClick, onTagsChange, onPriorityChange, onAddColumn }: KanbanBoardProps) {
+export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJobClick, onTagsChange, onAddColumn }: KanbanBoardProps) {
   const [activeJob, setActiveJob] = useState<Job | null>(null)
   const [showNewColumn, setShowNewColumn] = useState(false)
   const [newColName, setNewColName] = useState('')
@@ -105,6 +104,7 @@ export function KanbanBoard({ colunas, jobs, onJobMove, onJobsReorder, onJobClic
     const movedJob = jobs.find((j) => j.id === activeJobId)
     if (!movedJob) return
 
+    const sourceColunaId = movedJob.coluna_id
     let targetColunaId = movedJob.coluna_id
     let targetPosicao = movedJob.posicao
 
@@ -141,7 +141,14 @@ export function KanbanBoard({ colunas, jobs, onJobMove, onJobsReorder, onJobClic
     })
 
     reorder(reindexed)
-    onJobMove?.(activeJobId, targetColunaId, targetPosicao)
+
+    // Build batch reorder payload: all cards in affected columns
+    const affectedColunaIds = new Set([sourceColunaId, targetColunaId])
+    const batchItems = reindexed
+      .filter((j) => affectedColunaIds.has(j.coluna_id))
+      .map((j) => ({ id: j.id, coluna_id: j.coluna_id, posicao: j.posicao }))
+
+    onBatchReorder?.(batchItems)
   }
 
   return (
@@ -160,7 +167,6 @@ export function KanbanBoard({ colunas, jobs, onJobMove, onJobsReorder, onJobClic
             jobs={getJobsForColumn(coluna.id)}
             onJobClick={onJobClick}
             onTagsChange={onTagsChange}
-            onPriorityChange={onPriorityChange}
           />
         ))}
 
