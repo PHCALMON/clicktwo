@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { NCLogo } from './nc-logo'
 
 export function Header() {
   const router = useRouter()
@@ -16,9 +17,7 @@ export function Header() {
   return (
     <header className="h-14 border-b border-border bg-bg-primary/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold text-text-primary">
-          <span className="text-accent">&#9673;</span> CLICKTWO
-        </h1>
+        <NCLogo size="sm" showLabel />
         <span className="text-xs text-text-muted">E2 STUDIO</span>
       </div>
 

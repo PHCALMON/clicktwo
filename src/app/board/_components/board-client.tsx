@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { Coluna, Job, Cliente, TagJob, Profile, StatusMembro } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
+import { ClientLogo } from '@/components/ui/client-logo'
 import { KanbanBoard } from './kanban-board'
 import { JobListView } from './job-list-view'
 import { NewJobModal } from './new-job-modal'
@@ -275,55 +276,52 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setColunas((prev) => [...prev, newColuna])
   }, [colunas])
 
+  const jobCountByCliente = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const job of jobs) {
+      map.set(job.cliente_id, (map.get(job.cliente_id) ?? 0) + 1)
+    }
+    return map
+  }, [jobs])
+
   return (
     <>
-      <div className="flex items-center justify-between px-6 pt-5 pb-2">
+      {/* Topbar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-text-primary">Board</h2>
-          {/* View Toggle */}
+          <h2 className="text-base font-bold text-text-primary">Board</h2>
           <div className="flex bg-bg-elevated border border-border rounded-md overflow-hidden">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
                 viewMode === 'kanban'
-                  ? 'bg-accent text-bg-primary'
+                  ? 'bg-accent text-white'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
-              title="Kanban"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="18" rx="1" />
-                <rect x="14" y="3" width="7" height="12" rx="1" />
-              </svg>
+              Kanban
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-accent text-bg-primary'
+                  ? 'bg-accent text-white'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
-              title="Lista"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6" />
-                <line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" />
-                <line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
+              Lista
             </button>
           </div>
         </div>
         <button
           onClick={() => setShowNewJob(true)}
-          className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
+          className="px-3.5 py-1.5 bg-accent text-white text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
         >
           + Novo Job
         </button>
       </div>
 
+      {/* Team bar */}
       {membrosList.length > 0 && (
         <TeamStatusBar
           membros={membrosList}
@@ -334,46 +332,45 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar de Clientes */}
-        <aside className="w-48 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3 shadow-card">
-          <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-2 mb-2">Clientes</h3>
+        {/* Client sidebar — redesigned with icons */}
+        <aside className="w-52 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3">
+          <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest px-2 mb-2">Clientes</h3>
+
           <button
             onClick={() => setSelectedClienteId(null)}
-            className={`w-full text-left text-sm px-2 py-1.5 rounded-md transition-colors ${
+            className={`w-full flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg transition-colors ${
               selectedClienteId === null
-                ? 'bg-accent/15 text-accent font-semibold'
+                ? 'bg-accent/10 text-accent font-semibold'
                 : 'text-text-primary hover:bg-bg-tertiary'
             }`}
           >
-            Todos
+            <div className="w-7 h-7 rounded-md bg-accent/15 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-accent">*</span>
+            </div>
+            <span>Todos</span>
           </button>
-          {clientesList.map((cliente) => (
-            <div key={cliente.id} className="flex items-center gap-1">
+
+          {clientesList.map((cliente) => {
+            const isActive = selectedClienteId === cliente.id
+            const count = jobCountByCliente.get(cliente.id) ?? 0
+            return (
               <button
+                key={cliente.id}
                 onClick={() => setSelectedClienteId(cliente.id)}
-                className={`flex-1 text-left text-sm px-2 py-1.5 rounded-md transition-colors truncate ${
-                  selectedClienteId === cliente.id
-                    ? 'bg-accent/15 text-accent font-semibold'
+                className={`w-full flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-accent/10 text-accent font-semibold'
                     : 'text-text-primary hover:bg-bg-tertiary'
                 }`}
               >
-                {cliente.nome}
+                <ClientLogo nome={cliente.nome} dominio={cliente.dominio} cor={cliente.cor} size="md" />
+                <span className="truncate flex-1 text-left">{cliente.nome}</span>
+                {count > 0 && (
+                  <span className="text-[10px] text-text-muted font-medium">{count}</span>
+                )}
               </button>
-              {cliente.drive_folder_url && (
-                <a
-                  href={cliente.drive_folder_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Abrir pasta no Drive"
-                  className="shrink-0 p-1 text-text-secondary hover:text-accent transition-colors"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  </svg>
-                </a>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </aside>
 
         {/* Board or List */}
@@ -406,11 +403,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           clientes={clientesList}
           onClose={() => setShowNewJob(false)}
           onSubmit={handleNewJob}
-          onNewCliente={async (nome: string) => {
+          onNewCliente={async (nome: string, cor?: string) => {
             const res = await fetch('/api/clientes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ nome }),
+              body: JSON.stringify({ nome, cor }),
             })
             if (!res.ok) return null
             const created = await res.json()

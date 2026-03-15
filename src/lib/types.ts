@@ -17,6 +17,8 @@ export interface Coluna {
 export interface Cliente {
   id: string
   nome: string
+  dominio: string | null
+  cor: string | null
   drive_folder_url: string | null
   created_at: string
 }
@@ -48,6 +50,29 @@ export interface Job {
   entregas_concluidas?: number
 }
 
+export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor'
+
+export type CategoriaPersonalidade = 'analistas' | 'diplomatas' | 'sentinelas' | 'exploradores'
+
+export type Identidade = 'assertivo' | 'turbulento'
+
+export interface PersonalidadeResult {
+  tipo: string
+  arquetipo: string
+  categoria: CategoriaPersonalidade
+  cor: string
+  descricao: string
+  identidade: Identidade
+  scores: {
+    energia: number
+    percepcao: number
+    decisao: number
+    estrutura: number
+    identidade: number
+  }
+  respondido_em: string
+}
+
 export interface Profile {
   id: string
   nome: string
@@ -56,6 +81,8 @@ export interface Profile {
   status: StatusMembro
   status_texto: string | null
   status_updated_at: string
+  cargo: Cargo | string | null
+  personalidade: PersonalidadeResult | null
   created_at: string
 }
 

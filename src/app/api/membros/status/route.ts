@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest) {
     .from('profiles')
     .update(updateData)
     .eq('id', user.id)
-    .select('id, nome, email, avatar_url, status, status_texto, status_updated_at')
+    .select('id, nome, email, avatar_url, status, status_texto, status_updated_at, cargo')
     .single()
 
   if (error) {

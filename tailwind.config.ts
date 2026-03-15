@@ -11,26 +11,40 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          primary: "#0C0C0E",
-          secondary: "#121215",
-          tertiary: "#1C1C22",
-          card: "#16161A",
-          elevated: "#1E1E24",
-          hover: "#26262E",
+          primary: "#0A0A0C",
+          secondary: "#141416",
+          tertiary: "#1C1C1E",
+          card: "#1A1A1D",
+          elevated: "#1C1C1E",
+          hover: "#252528",
+          input: "#111113",
         },
         accent: {
-          DEFAULT: "#F5A623",
-          hover: "#FFB84D",
-          muted: "rgba(245, 166, 35, 0.12)",
+          DEFAULT: "#4A90D9",
+          hover: "#5BA0E9",
+          muted: "rgba(74, 144, 217, 0.12)",
         },
         text: {
-          primary: "#E4E4E7",
-          secondary: "#8B8B96",
-          muted: "#56565F",
+          primary: "#E5E5E7",
+          secondary: "#8E8E93",
+          muted: "#5A5A5E",
         },
         border: {
-          DEFAULT: "#2A2A32",
-          hover: "#38384A",
+          DEFAULT: "#2A2A2C",
+          hover: "#3A3A3C",
+        },
+        // Figma-inspired vibrant palette
+        fig: {
+          red: "#F24822",
+          orange: "#FF8C00",
+          yellow: "#FFCD29",
+          green: "#14AE5C",
+          blue: "#0D99FF",
+          indigo: "#5B5FC7",
+          purple: "#9747FF",
+          pink: "#E84393",
+          cyan: "#00C2CB",
+          gray: "#8E8E93",
         },
         priority: {
           urgente: "#EF4444",
@@ -46,6 +60,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["'Playfair Display'", "Georgia", "serif"],
       },
       borderRadius: {
         sm: "6px",

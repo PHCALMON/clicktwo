@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data: membros, error } = await supabase
     .from('profiles')
-    .select('id, nome, email, avatar_url, status, status_updated_at')
+    .select('id, nome, email, avatar_url, status, status_texto, status_updated_at, cargo')
     .order('nome')
 
   if (error) {

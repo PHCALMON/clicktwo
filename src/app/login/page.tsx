@@ -28,16 +28,20 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/board')
+    router.push('/home')
     router.refresh()
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-primary">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-text-primary">
-            <span className="text-accent">◉</span> CLICKTWO
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-14 h-14 bg-gradient-to-br from-accent to-[#9747FF] rounded-xl flex items-center justify-center mb-3">
+            <span className="text-2xl font-display font-light italic text-white leading-none">N</span>
+            <span className="text-2xl font-sans font-extrabold text-white leading-none">C</span>
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">
+            <span className="font-display font-light italic">Noise</span><span className="font-extrabold">Cancel</span>
           </h1>
           <p className="text-text-muted text-sm mt-1">E2 STUDIO</p>
         </div>

@@ -31,15 +31,18 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { nome } = body
+  const { nome, cor } = body
 
   if (!nome?.trim()) {
     return NextResponse.json({ error: 'Nome is required' }, { status: 400 })
   }
 
+  const insertData: Record<string, string> = { nome: nome.trim() }
+  if (cor?.trim()) insertData.cor = cor.trim()
+
   const { data: cliente, error: insertError } = await supabase
     .from('clientes')
-    .insert({ nome: nome.trim() })
+    .insert(insertData)
     .select()
     .single()
 

@@ -2,15 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 html {
-  font-size: 130%;
+  font-size: 100%;
 }
 
 body {
-  color: #E4E4E7;
-  background: #0C0C0E;
+  color: #E5E5E7;
+  background: #0A0A0C;
   font-family: 'Inter', system-ui, sans-serif;
 }
 
@@ -21,16 +21,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0C0C0E;
+  background: #0A0A0C;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2A2A32;
+  background: #2A2A2C;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #38384A;
+  background: #3A3A3C;
 }
 
 /* Global transitions */
@@ -43,10 +43,10 @@ body {
   }
 }
 
-/* Focus ring */
+/* Focus ring — accent blue */
 @layer base {
   *:focus-visible {
-    outline: 2px solid #F5A623;
+    outline: 2px solid #4A90D9;
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -54,8 +54,8 @@ body {
 
 /* Selection */
 ::selection {
-  background: rgba(245, 166, 35, 0.25);
-  color: #E4E4E7;
+  background: rgba(74, 144, 217, 0.25);
+  color: #E5E5E7;
 }
 
 /* Notification toast animations */

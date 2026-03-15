@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { Profile, Job, StatusMembro } from '@/lib/types'
-import { STATUS_MEMBRO } from '@/lib/constants'
+import { STATUS_MEMBRO, CARGOS } from '@/lib/constants'
+import type { Cargo } from '@/lib/types'
 
 interface TeamStatusBarProps {
   membros: Profile[]
@@ -114,7 +115,21 @@ export function TeamStatusBar({ membros, jobs, currentUserId, onStatusChange }: 
                   onMouseEnter={() => handleMouseEnter(membro.id)}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <p className="text-sm font-semibold text-text-primary">{membro.nome}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-text-primary">{membro.nome}</p>
+                    {membro.cargo && (() => {
+                      const cargoInfo = CARGOS[membro.cargo as Cargo]
+                      return cargoInfo ? (
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: `${cargoInfo.color}15`, color: cargoInfo.color }}>
+                          {cargoInfo.label}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-bg-tertiary text-text-muted">
+                          {membro.cargo}
+                        </span>
+                      )
+                    })()}
+                  </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span>{statusInfo.emoji}</span>
                     <span className="text-xs font-medium" style={{ color: statusInfo.color }}>{statusInfo.label}</span>

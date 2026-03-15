@@ -4,6 +4,9 @@ import { useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Cliente } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
+import { ClientLogo } from '@/components/ui/client-logo'
+
+const CORES_PRESET = ['#4A90D9', '#9747FF', '#E84393', '#FF8C00', '#14AE5C', '#EF4444', '#FFCD29', '#00C2CB']
 
 interface ClientesClientProps {
   initialClientes: Cliente[]
@@ -18,6 +21,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
+  const [dominio, setDominio] = useState('')
+  const [cor, setCor] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
@@ -41,6 +46,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
   function handleAdd() {
     setEditingId(null)
     setNome('')
+    setDominio('')
+    setCor('')
     setError(null)
     setShowForm(true)
   }
@@ -48,6 +55,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
   function handleEdit(cliente: Cliente) {
     setEditingId(cliente.id)
     setNome(cliente.nome)
+    setDominio(cliente.dominio ?? '')
+    setCor(cliente.cor ?? '')
     setError(null)
     setShowForm(true)
   }
@@ -65,6 +74,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
         const newCliente: Cliente = {
           id: `c${Date.now()}`,
           nome: nome.trim(),
+          dominio: dominio.trim() || null,
+          cor: cor || null,
           drive_folder_url: null,
           created_at: new Date().toISOString(),
         }
@@ -83,7 +94,7 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
         const res = await fetch(`/api/clientes/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nome: nome.trim() }),
+          body: JSON.stringify({ nome: nome.trim(), dominio: dominio.trim() || null, cor: cor || null }),
         })
         if (!res.ok) {
           const data = await res.json()
@@ -98,7 +109,7 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
         const res = await fetch('/api/clientes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nome: nome.trim() }),
+          body: JSON.stringify({ nome: nome.trim(), dominio: dominio.trim() || null, cor: cor || null }),
         })
         if (!res.ok) {
           const data = await res.json()
@@ -122,6 +133,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
   function handleCancel() {
     setShowForm(false)
     setNome('')
+    setDominio('')
+    setCor('')
     setEditingId(null)
     setError(null)
   }
@@ -192,7 +205,7 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
           <label className="block text-sm font-medium text-text-secondary mb-2">
             {editingId ? 'Editar Cliente' : 'Novo Cliente'}
           </label>
-          <div className="flex gap-3">
+          <div className="flex gap-3 mb-3">
             <input
               type="text"
               value={nome}
@@ -217,6 +230,28 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
               Cancelar
             </button>
           </div>
+          <input
+            type="text"
+            value={dominio}
+            onChange={(e) => setDominio(e.target.value)}
+            placeholder="Site do cliente (ex: natura.com.br) — pra puxar logo automatico"
+            className="w-full px-3 py-2 bg-bg-card border border-border rounded-md text-text-primary placeholder-text-muted focus:outline-none focus:border-accent text-sm"
+          />
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-text-muted">Cor (fallback):</span>
+            <div className="flex gap-1.5">
+              {CORES_PRESET.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCor(cor === c ? '' : c)}
+                  className={`w-6 h-6 rounded-md border-2 transition-all ${cor === c ? 'border-white scale-110' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+            <ClientLogo nome={nome || 'AB'} dominio={dominio || null} cor={cor || null} size="md" />
+          </div>
         </form>
       )}
 
@@ -231,6 +266,7 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
             className="flex items-center justify-between px-4 py-3 bg-bg-card border border-border rounded-md shadow-card hover:shadow-card-hover hover:border-border-hover hover:-translate-y-px transition-all duration-150 group"
           >
             <div className="flex items-center gap-3">
+              <ClientLogo nome={cliente.nome} dominio={cliente.dominio} cor={cliente.cor} size="md" />
               <div>
                 <p className="text-sm font-medium text-text-primary">{cliente.nome}</p>
                 <p className="text-xs text-text-muted">

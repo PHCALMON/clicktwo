@@ -1,6 +1,6 @@
 import { MiniSidebar } from '@/components/ui/mini-sidebar'
 
-export default function ClientesLayout({
+export default function HomeLayout({
   children,
 }: {
   children: React.ReactNode

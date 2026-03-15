@@ -1,6 +1,6 @@
 import { MiniSidebar } from '@/components/ui/mini-sidebar'
 
-export default function ClientesLayout({
+export default function TesteLayout({
   children,
 }: {
   children: React.ReactNode
@@ -8,7 +8,7 @@ export default function ClientesLayout({
   return (
     <div className="h-screen flex bg-bg-primary">
       <MiniSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
     </div>
   )
 }
