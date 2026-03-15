@@ -5,6 +5,16 @@ import { NCLogo } from './nc-logo'
 
 const navItems = [
   {
+    href: '/home',
+    label: 'Home',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <polyline points="9 22 9 12 15 12 15 22" />
+      </svg>
+    ),
+  },
+  {
     href: '/board',
     label: 'Board',
     icon: (
@@ -45,9 +55,9 @@ export function MiniSidebar() {
 
   return (
     <aside className="w-[52px] shrink-0 bg-bg-primary border-r border-border flex flex-col items-center py-4 gap-1">
-      <div className="mb-6">
+      <a href="/home" className="mb-6 hover:opacity-80 transition-opacity">
         <NCLogo size="sm" />
-      </div>
+      </a>
 
       {navItems.map((item) => {
         const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')

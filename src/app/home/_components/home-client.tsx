@@ -28,7 +28,7 @@ function getDateStr(): string {
 }
 
 export function HomeClient({ jobs, membros, currentUser }: HomeClientProps) {
-  const firstName = currentUser?.nome?.split(' ')[0] ?? 'Usuario'
+  const firstName = currentUser?.nome?.split(' ')[0] || currentUser?.email?.split('@')[0] || 'Usuario'
 
   // Jobs with priority calculated
   const jobsWithPrio = useMemo(() => {
