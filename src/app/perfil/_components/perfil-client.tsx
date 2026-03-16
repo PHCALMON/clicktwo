@@ -142,21 +142,30 @@ export function PerfilClient({ profile }: PerfilClientProps) {
           </div>
         </div>
 
-        {/* Cargo (read-only) */}
-        {profile.cargo && CARGOS[profile.cargo as Cargo] && (
+        {/* Cargo (read-only, multiple) */}
+        {profile.cargo && (Array.isArray(profile.cargo) ? profile.cargo.length > 0 : true) && (
           <div className="bg-bg-card border border-border rounded-xl p-6 space-y-4">
             <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-[2px]">Cargo</h2>
-            <div
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2"
-              style={{
-                borderColor: CARGOS[profile.cargo as Cargo].color,
-                backgroundColor: `${CARGOS[profile.cargo as Cargo].color}12`,
-              }}
-            >
-              <span className="text-lg">{CARGOS[profile.cargo as Cargo].icon}</span>
-              <span className="text-sm font-semibold" style={{ color: CARGOS[profile.cargo as Cargo].color }}>
-                {CARGOS[profile.cargo as Cargo].label}
-              </span>
+            <div className="flex flex-wrap gap-2">
+              {(Array.isArray(profile.cargo) ? profile.cargo : [profile.cargo]).map((c) => {
+                const info = CARGOS[c as Cargo]
+                if (!info) return null
+                return (
+                  <div
+                    key={c}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2"
+                    style={{
+                      borderColor: info.color,
+                      backgroundColor: `${info.color}12`,
+                    }}
+                  >
+                    <span className="text-lg">{info.icon}</span>
+                    <span className="text-sm font-semibold" style={{ color: info.color }}>
+                      {info.label}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

@@ -50,7 +50,7 @@ export interface Job {
   entregas_concluidas?: number
 }
 
-export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor' | 'filmmaker'
+export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor' | 'filmmaker' | 'roteirista'
 
 export type CategoriaPersonalidade = 'analistas' | 'diplomatas' | 'sentinelas' | 'exploradores'
 
@@ -81,7 +81,7 @@ export interface Profile {
   status: StatusMembro
   status_texto: string | null
   status_updated_at: string
-  cargo: Cargo | string | null
+  cargo: Cargo[] | string | null
   personalidade: PersonalidadeResult | null
   created_at: string
 }

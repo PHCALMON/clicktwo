@@ -271,14 +271,14 @@ export function HomeClient({ jobs, membros, currentUser }: HomeClientProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-semibold text-text-primary">{membro.nome?.split(' ')[0]}</p>
-                    {membro.cargo && (() => {
-                      const cargoInfo = CARGOS[membro.cargo as Cargo]
+                    {membro.cargo && (Array.isArray(membro.cargo) ? membro.cargo : [membro.cargo]).map((c) => {
+                      const cargoInfo = CARGOS[c as Cargo]
                       return cargoInfo ? (
-                        <span className="text-[8px] font-semibold uppercase px-1 py-0.5 rounded" style={{ backgroundColor: `${cargoInfo.color}15`, color: cargoInfo.color }}>
+                        <span key={c} className="text-[8px] font-semibold uppercase px-1 py-0.5 rounded" style={{ backgroundColor: `${cargoInfo.color}15`, color: cargoInfo.color }}>
                           {cargoInfo.label}
                         </span>
                       ) : null
-                    })()}
+                    })}
                   </div>
                   <p className="text-xs text-text-muted truncate">
                     {membro.status === 'producao' && jobAtivo ? (

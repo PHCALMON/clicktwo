@@ -9,21 +9,37 @@ interface EquipeClientProps {
   membros: Profile[]
 }
 
+function parseCargos(cargo: Profile['cargo']): Cargo[] {
+  if (!cargo) return []
+  if (Array.isArray(cargo)) return cargo as Cargo[]
+  if (typeof cargo === 'string') return [cargo as Cargo]
+  return []
+}
+
 export function EquipeClient({ membros: initial }: EquipeClientProps) {
   const [membros, setMembros] = useState(initial)
   const [saving, setSaving] = useState<string | null>(null)
 
-  async function setCargo(membroId: string, cargo: Cargo | null) {
+  async function toggleCargo(membroId: string, cargo: Cargo) {
+    const membro = membros.find((m) => m.id === membroId)
+    if (!membro) return
+
+    const current = parseCargos(membro.cargo)
+    const next = current.includes(cargo)
+      ? current.filter((c) => c !== cargo)
+      : [...current, cargo]
+    const value = next.length > 0 ? next : null
+
     setSaving(membroId)
     try {
       const res = await fetch(`/api/membros/${membroId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cargo }),
+        body: JSON.stringify({ cargo: value }),
       })
       if (res.ok) {
         setMembros((prev) =>
-          prev.map((m) => m.id === membroId ? { ...m, cargo } : m)
+          prev.map((m) => m.id === membroId ? { ...m, cargo: value } : m)
         )
       }
     } finally {
@@ -37,7 +53,7 @@ export function EquipeClient({ membros: initial }: EquipeClientProps) {
 
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Equipe</h1>
-          <p className="text-sm text-text-muted mt-1">Defina o cargo de cada membro</p>
+          <p className="text-sm text-text-muted mt-1">Defina os cargos de cada membro (multiplos permitidos)</p>
         </div>
 
         <div className="space-y-3">
@@ -45,35 +61,35 @@ export function EquipeClient({ membros: initial }: EquipeClientProps) {
             const personalidade = membro.personalidade as PersonalidadeResult | null
             const arq = personalidade ? ARQUETIPOS[personalidade.tipo] : null
             const firstName = membro.nome?.split(' ')[0] || membro.email?.split('@')[0] || '?'
-            const currentCargo = membro.cargo as Cargo | null
-            const cargoInfo = currentCargo ? CARGOS[currentCargo] : null
+            const cargos = parseCargos(membro.cargo)
             const isSaving = saving === membro.id
 
             return (
               <div key={membro.id} className="bg-bg-card border border-border rounded-xl p-5">
                 <div className="flex items-center gap-4 mb-4">
-                  {/* Avatar */}
                   <div className="w-10 h-10 rounded-full bg-accent/20 text-accent text-sm font-bold flex items-center justify-center flex-shrink-0">
                     {firstName.charAt(0).toUpperCase()}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-semibold text-text-primary">{membro.nome || membro.email}</h3>
-                      {cargoInfo && (
-                        <span
-                          className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: `${cargoInfo.color}15`, color: cargoInfo.color }}
-                        >
-                          {cargoInfo.icon} {cargoInfo.label}
-                        </span>
-                      )}
+                      {cargos.map((c) => {
+                        const info = CARGOS[c]
+                        return info ? (
+                          <span
+                            key={c}
+                            className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: `${info.color}15`, color: info.color }}
+                          >
+                            {info.icon} {info.label}
+                          </span>
+                        ) : null
+                      })}
                     </div>
                     <p className="text-xs text-text-muted truncate">{membro.email}</p>
                   </div>
 
-                  {/* Personality badge */}
                   {arq && personalidade && (
                     <div
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
@@ -85,14 +101,13 @@ export function EquipeClient({ membros: initial }: EquipeClientProps) {
                   )}
                 </div>
 
-                {/* Cargo selector */}
                 <div className="flex flex-wrap gap-1.5">
                   {(Object.entries(CARGOS) as [Cargo, { label: string; color: string; icon: string }][]).map(([key, cfg]) => {
-                    const isActive = currentCargo === key
+                    const isActive = cargos.includes(key)
                     return (
                       <button
                         key={key}
-                        onClick={() => setCargo(membro.id, isActive ? null : key)}
+                        onClick={() => toggleCargo(membro.id, key)}
                         disabled={isSaving}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50 ${
                           isActive
