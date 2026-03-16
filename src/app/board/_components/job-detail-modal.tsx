@@ -5,6 +5,7 @@ import type { Job, Coluna, Comentario, Arquivo, Profile, Entrega, TagJob } from 
 import { TIPOS_JOB, TAGS } from '@/lib/constants'
 import { calcPrioridade, calcJobPrioridade } from '@/lib/priority'
 import { FileUpload } from './file-upload'
+import { ClientLogo } from '@/components/ui/client-logo'
 
 interface JobDetailModalProps {
   job: Job
@@ -395,620 +396,734 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
       })
     : 'Sem data'
 
+  const prio = calcJobPrioridade(job.data_entrega, entregas, job.hora_entrega_cliente, job.margem_horas)
+  const currentColuna = colunas.find((c) => c.id === job.coluna_id)
+  const entregasConcluidas = entregas.filter((e) => e.concluida).length
+
+  // Compute internal deadline display
+  const prazoInterno = (() => {
+    if (!jobHora) return null
+    const margem = parseInt(jobMargem) || 0
+    if (margem === 0) return jobHora
+    const [h, m] = jobHora.split(':').map(Number)
+    const totalMin = h * 60 + m - margem * 60
+    const ih = Math.floor(((totalMin % 1440) + 1440) % 1440 / 60)
+    const im = ((totalMin % 1440) + 1440) % 1440 % 60
+    return `${String(ih).padStart(2, '0')}:${String(im).padStart(2, '0')}`
+  })()
+
+  function relativeTime(dateStr: string) {
+    const now = new Date()
+    const date = new Date(dateStr)
+    const diffMs = now.getTime() - date.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return 'agora'
+    if (diffMin < 60) return `${diffMin}min`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `${diffH}h`
+    const diffD = Math.floor(diffH / 24)
+    if (diffD < 30) return `${diffD}d`
+    return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="bg-bg-elevated border border-border rounded-lg shadow-elevated w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
+        className="bg-bg-primary border border-border rounded-xl shadow-elevated w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-text-primary">{job.campanha}</h2>
-            <div className="flex items-center gap-3 mt-1">
-              {job.cliente && (
-                <span className="text-sm text-text-muted">{job.cliente.nome}</span>
-              )}
-              {!editingDriveUrl ? (
-                <button
-                  onClick={() => { setDriveUrlInput(job.drive_folder_url ?? ''); setEditingDriveUrl(true) }}
-                  className={`inline-flex items-center gap-1 text-xs transition-colors ${
-                    job.drive_folder_url
-                      ? 'text-accent hover:text-accent-hover'
-                      : 'text-text-muted hover:text-text-secondary'
-                  }`}
-                  title={job.drive_folder_url ? 'Editar link do Drive' : 'Adicionar link do Drive'}
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                  </svg>
-                  {job.drive_folder_url ? 'Drive' : '+ Drive'}
-                </button>
-              ) : (
-                <div className="flex items-center gap-1.5 flex-1">
-                  <input
-                    type="url"
-                    value={driveUrlInput}
-                    onChange={(e) => setDriveUrlInput(e.target.value)}
-                    placeholder="Cole a URL da pasta do Drive..."
-                    autoFocus
-                    className="flex-1 px-2 py-1 bg-bg-card border border-border rounded text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveDriveUrl()
-                      if (e.key === 'Escape') setEditingDriveUrl(false)
-                    }}
-                  />
-                  <button
-                    onClick={handleSaveDriveUrl}
-                    disabled={savingDriveUrl}
-                    className="px-2 py-1 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-50"
-                  >
-                    {savingDriveUrl ? '...' : 'OK'}
-                  </button>
-                  {job.drive_folder_url && (
-                    <a
-                      href={job.drive_folder_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-accent hover:text-accent-hover text-xs"
-                      title="Abrir no Drive"
-                    >
-                      Abrir
-                    </a>
-                  )}
-                  <button
-                    onClick={() => setEditingDriveUrl(false)}
-                    className="text-text-muted hover:text-text-primary text-xs"
-                  >
-                    &times;
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          <button onClick={onClose} className="text-text-muted hover:text-text-primary text-xl ml-4">
-            &times;
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
-          {/* Meta info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs text-text-muted block mb-1">Coluna</span>
-              <select
-                value={job.coluna_id}
-                onChange={(e) => handleMoveColumn(e.target.value)}
-                className="w-full px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
-              >
-                {colunas.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nome}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <span className="text-xs text-text-muted block mb-1">Tipo</span>
-              <p className="text-sm text-text-secondary px-2 py-1.5">
-                {TIPOS_JOB[job.tipo_job]}
+        {/* ── HEADER ── */}
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <ClientLogo
+              nome={job.cliente?.nome ?? 'Cliente'}
+              dominio={job.cliente?.dominio}
+              cor={job.cliente?.cor}
+              size="lg"
+            />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-text-primary truncate">{job.campanha}</h2>
+              <p className="text-sm text-text-muted">
+                {job.cliente?.nome ?? 'Cliente'} &middot; {TIPOS_JOB[job.tipo_job]}
               </p>
             </div>
-            <div>
-              <span className="text-xs text-text-muted block mb-1">Prioridade</span>
-              {(() => {
-                const prio = calcJobPrioridade(job.data_entrega, entregas, job.hora_entrega_cliente, job.margem_horas)
-                return (
-                  <div className="flex items-center gap-2 px-2 py-1.5">
-                    <span
-                      className={`w-2 h-2 rounded-full${prio.pulse ? ' animate-pulse' : ''}`}
-                      style={{ backgroundColor: prio.color }}
-                    />
-                    <span className="text-sm text-text-secondary">{prio.label}</span>
-                    {prio.countdown && (
-                      <span className="text-xs font-mono font-semibold" style={{ color: prio.color }}>
-                        {prio.countdown}
-                      </span>
-                    )}
-                    {prio.entregasTotal > 0 && (
-                      <span className="text-xs text-text-muted">
-                        &middot; {prio.entregasConcluidas}/{prio.entregasTotal}
-                      </span>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-            <div>
-              <span className="text-xs text-text-muted block mb-1">Entrega</span>
-              <p className="text-sm text-text-secondary px-2 py-1.5">{formattedDate}</p>
-            </div>
           </div>
-
-          {/* Prazo do cliente: hora + margem */}
-          <div>
-            <span className="text-xs text-text-muted block mb-2">Prazo do Cliente (horario + margem revisao)</span>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-text-muted">Hora:</span>
-                <input
-                  type="time"
-                  value={jobHora}
-                  onChange={(e) => {
-                    setJobHora(e.target.value)
-                    handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
-                  }}
-                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
-                />
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-text-muted">Margem:</span>
-                <select
-                  value={jobMargem}
-                  onChange={(e) => {
-                    setJobMargem(e.target.value)
-                    handleSaveJobDeadline('margem_horas', e.target.value)
-                  }}
-                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
-                >
-                  <option value="0">Sem margem</option>
-                  <option value="2">2h antes</option>
-                  <option value="4">4h antes</option>
-                  <option value="6">6h antes</option>
-                  <option value="8">8h antes</option>
-                </select>
-              </div>
-              {jobHora && (
-                <span className="text-xs text-text-muted italic">
-                  Cliente: {jobHora} &rarr; Time ve o prazo interno
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Em Producao toggle */}
-          {onEmProducaoToggle && (
-            <div>
-              <span className="text-xs text-text-muted block mb-2">Producao</span>
+          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+            {/* Drive link icon */}
+            {job.drive_folder_url && (
+              <a
+                href={job.drive_folder_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 rounded-lg text-text-muted hover:text-accent hover:bg-bg-card transition-colors"
+                title="Abrir pasta no Drive"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
+              </a>
+            )}
+            {/* Em producao toggle icon */}
+            {onEmProducaoToggle && (
               <button
                 onClick={() => onEmProducaoToggle(job.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all border ${
+                className={`p-1.5 rounded-lg transition-colors ${
                   job.em_producao_por === currentUserId
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                    : 'bg-bg-card border-border text-text-secondary hover:border-accent hover:text-accent'
+                    ? 'text-emerald-400 bg-emerald-500/15'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-card'
                 }`}
+                title={job.em_producao_por === currentUserId ? 'Parar producao' : 'Iniciar producao'}
               >
                 {job.em_producao_por === currentUserId ? (
-                  <>
+                  <span className="relative flex h-4 w-4 items-center justify-center">
+                    <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                )}
+              </button>
+            )}
+            {/* Close */}
+            <button onClick={onClose} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-card transition-colors">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── PRIORITY BANNER ── */}
+        <div
+          className="flex items-center justify-between px-5 py-2"
+          style={{ backgroundColor: `${prio.color}15` }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full${prio.pulse ? ' animate-pulse' : ''}`}
+              style={{ backgroundColor: prio.color }}
+            />
+            <span className="text-sm font-medium" style={{ color: prio.color }}>
+              {prio.label}
+            </span>
+          </div>
+          {prio.countdown && (
+            <span className="text-sm font-mono font-semibold" style={{ color: prio.color }}>
+              {prio.countdown}
+            </span>
+          )}
+        </div>
+
+        {/* ── TWO-COLUMN BODY ── */}
+        <div className="flex-1 overflow-y-auto flex min-h-0">
+
+          {/* ── LEFT COLUMN (main content) ── */}
+          <div className="flex-1 p-5 space-y-5 overflow-y-auto border-r border-border">
+
+            {/* INFORMACOES */}
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Informacoes</span>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div>
+                  <span className="text-xs text-text-muted block mb-1">Coluna</span>
+                  <div className="flex items-center gap-2">
+                    {currentColuna?.cor && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
+                    )}
+                    <select
+                      value={job.coluna_id}
+                      onChange={(e) => handleMoveColumn(e.target.value)}
+                      className="w-full px-2 py-1.5 bg-bg-card border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent"
+                    >
+                      {colunas.map((c) => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-text-muted block mb-1">Tipo</span>
+                  <p className="text-sm text-text-secondary px-2 py-1.5">
+                    {TIPOS_JOB[job.tipo_job]}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs text-text-muted block mb-1">Data Entrega</span>
+                  <p className="text-sm text-text-secondary px-2 py-1.5">{formattedDate}</p>
+                </div>
+                <div>
+                  <span className="text-xs text-text-muted block mb-1">Prazo do Cliente</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      value={jobHora}
+                      onChange={(e) => {
+                        setJobHora(e.target.value)
+                        handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
+                      }}
+                      className="px-2 py-1 bg-bg-card border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
+                    />
+                    <select
+                      value={jobMargem}
+                      onChange={(e) => {
+                        setJobMargem(e.target.value)
+                        handleSaveJobDeadline('margem_horas', e.target.value)
+                      }}
+                      className="px-1.5 py-1 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
+                    >
+                      <option value="0">Sem margem</option>
+                      <option value="2">-2h</option>
+                      <option value="4">-4h</option>
+                      <option value="6">-6h</option>
+                      <option value="8">-8h</option>
+                    </select>
+                  </div>
+                  {prazoInterno && (
+                    <span className="text-[10px] text-text-muted mt-1 block">
+                      Interno: {prazoInterno}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* FREELA */}
+            {(job.freela_nome || freelaNome) && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Freela</span>
+                <div className="flex items-center gap-3 mt-3">
+                  {/* Avatar initials */}
+                  <div className="w-8 h-8 rounded-lg bg-accent/15 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    {(freelaNome || 'F').substring(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={freelaNome}
+                      onChange={(e) => setFreelaNome(e.target.value)}
+                      onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      placeholder="Nome do freela"
+                      className="w-full text-sm font-medium text-text-primary bg-transparent focus:outline-none placeholder-text-muted"
+                    />
+                    <input
+                      type="text"
+                      value={freelaFuncao}
+                      onChange={(e) => setFreelaFuncao(e.target.value)}
+                      onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      placeholder="Funcao (ex: Motion Designer)"
+                      className="w-full text-xs text-text-muted bg-transparent focus:outline-none placeholder-text-muted"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Show add-freela link if no freela */}
+            {!job.freela_nome && !freelaNome && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Freela</span>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={freelaNome}
+                    onChange={(e) => setFreelaNome(e.target.value)}
+                    onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                    placeholder="+ Adicionar freela"
+                    className="w-full px-2 py-1.5 text-sm text-text-muted bg-transparent border border-dashed border-border rounded-lg focus:outline-none focus:border-accent focus:text-text-primary placeholder-text-muted"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ENTREGAS */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Entregas</span>
+                {entregas.length > 0 && (
+                  <span className="text-[10px] font-bold text-accent">
+                    {entregasConcluidas}/{entregas.length} CONCLUIDAS
+                  </span>
+                )}
+              </div>
+
+              {entregas.length > 0 && (
+                <div className="space-y-1.5 mb-3">
+                  {entregas.map((entrega) => (
+                    <div
+                      key={entrega.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
+                        entrega.concluida
+                          ? 'bg-bg-primary border-border opacity-60'
+                          : 'bg-bg-card border-border'
+                      }`}
+                    >
+                      <button
+                        onClick={() => toggleEntrega(entrega.id)}
+                        className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                          entrega.concluida
+                            ? 'bg-accent border-accent text-bg-primary'
+                            : 'border-border hover:border-accent'
+                        }`}
+                      >
+                        {entrega.concluida && (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className={`text-sm flex-1 min-w-0 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                        {entrega.nome}
+                      </span>
+                      {/* Tag badge */}
+                      <div className="relative flex-shrink-0">
+                        <button
+                          onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
+                          className={`px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors ${
+                            entrega.tag && TAGS[entrega.tag]
+                              ? ''
+                              : 'text-text-muted hover:text-text-secondary border border-dashed border-border'
+                          }`}
+                          style={entrega.tag && TAGS[entrega.tag] ? {
+                            backgroundColor: `${TAGS[entrega.tag].color}20`,
+                            color: TAGS[entrega.tag].color,
+                          } : undefined}
+                          title="Editar tag"
+                        >
+                          {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
+                        </button>
+                        {editingEntregaTagId === entrega.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
+                            <div className="absolute right-0 top-full mt-1 z-50 bg-bg-primary border border-border rounded-lg shadow-elevated p-1.5 w-44 max-h-60 overflow-y-auto">
+                              <button
+                                onClick={() => updateEntregaTag(entrega.id, null)}
+                                className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                  !entrega.tag ? 'bg-bg-card' : 'hover:bg-bg-card'
+                                }`}
+                              >
+                                <span className="w-2 h-2 rounded-full bg-border flex-shrink-0" />
+                                <span className="text-text-muted">Nenhuma</span>
+                              </button>
+                              {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                                ([value, config]) => (
+                                  <button
+                                    key={value}
+                                    onClick={() => updateEntregaTag(entrega.id, value)}
+                                    className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                      entrega.tag === value ? 'bg-bg-card' : 'hover:bg-bg-card'
+                                    }`}
+                                  >
+                                    <span
+                                      className="w-2 h-2 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: config.color }}
+                                    />
+                                    <span className={entrega.tag === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                                      {config.label}
+                                    </span>
+                                    {entrega.tag === value && (
+                                      <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                                    )}
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      {/* Deadline per entrega */}
+                      {(() => {
+                        const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
+                        return (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <input
+                              type="date"
+                              value={entrega.data_entrega ?? ''}
+                              onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
+                              className="w-[100px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                            />
+                            <input
+                              type="time"
+                              value={entrega.hora_entrega_cliente ?? ''}
+                              onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
+                              className="w-[70px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                              title="Hora do cliente"
+                            />
+                            <select
+                              value={String(entrega.margem_horas ?? 4)}
+                              onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
+                              className="w-[52px] px-0.5 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent"
+                              title="Margem de revisao"
+                            >
+                              <option value="0">0h</option>
+                              <option value="2">-2h</option>
+                              <option value="4">-4h</option>
+                              <option value="6">-6h</option>
+                              <option value="8">-8h</option>
+                            </select>
+                            {ep && ep.countdown && (
+                              <span className="text-[10px] font-mono font-semibold" style={{ color: ep.color }}>
+                                {ep.countdown}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
+                      <button
+                        onClick={() => deleteEntrega(entrega.id)}
+                        className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
+                        title="Remover"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add entrega form */}
+              <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap">
+                <input
+                  type="text"
+                  value={novaEntregaNome}
+                  onChange={(e) => setNovaEntregaNome(e.target.value)}
+                  placeholder="+ Adicionar entrega"
+                  className="flex-1 min-w-[120px] px-2 py-1.5 bg-bg-card border border-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                />
+                <input
+                  type="date"
+                  value={novaEntregaData}
+                  onChange={(e) => setNovaEntregaData(e.target.value)}
+                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                  title="Data de entrega"
+                />
+                <input
+                  type="time"
+                  value={novaEntregaHora}
+                  onChange={(e) => setNovaEntregaHora(e.target.value)}
+                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                  title="Hora do cliente"
+                />
+                <select
+                  value={novaEntregaMargem}
+                  onChange={(e) => setNovaEntregaMargem(e.target.value)}
+                  className="px-1 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
+                  title="Margem"
+                >
+                  <option value="0">0h</option>
+                  <option value="2">-2h</option>
+                  <option value="4">-4h</option>
+                  <option value="6">-6h</option>
+                  <option value="8">-8h</option>
+                </select>
+                <select
+                  value={novaEntregaTag}
+                  onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
+                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
+                >
+                  <option value="">Tag</option>
+                  {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                    ([value, config]) => (
+                      <option key={value} value={value}>{config.label}</option>
+                    )
+                  )}
+                </select>
+                <button
+                  type="submit"
+                  disabled={!novaEntregaNome.trim() || addingEntrega}
+                  className="px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {addingEntrega ? '...' : '+'}
+                </button>
+              </form>
+            </div>
+
+            {/* TAGS */}
+            <div className="relative">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Tags</span>
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                {job.tags.map((tag) => TAGS[tag] && (
+                  <span
+                    key={tag}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium"
+                    style={{
+                      backgroundColor: `${TAGS[tag].color}20`,
+                      color: TAGS[tag].color,
+                    }}
+                  >
+                    {TAGS[tag].label}
+                  </span>
+                ))}
+                <button
+                  onClick={() => setShowTagPicker((v) => !v)}
+                  className="px-2 py-1 rounded-lg text-xs text-text-muted hover:text-accent hover:bg-bg-card border border-dashed border-border transition-colors"
+                  title="Editar tags"
+                >
+                  + Tag
+                </button>
+              </div>
+              {showTagPicker && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-bg-primary border border-border rounded-lg shadow-elevated p-2 w-52 max-h-72 overflow-y-auto">
+                    {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                      ([value, config]) => {
+                        const active = job.tags.includes(value)
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => toggleJobTag(value)}
+                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
+                              active ? 'bg-bg-card' : 'hover:bg-bg-card'
+                            }`}
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: config.color }}
+                            />
+                            <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                              {config.label}
+                            </span>
+                            {active && (
+                              <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                            )}
+                          </button>
+                        )
+                      }
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* FILES */}
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 block">Arquivos</span>
+              <FileUpload
+                jobId={job.id}
+                arquivos={arquivos}
+                onUpload={handleFileUpload}
+                onDelete={handleFileDelete}
+              />
+            </div>
+
+            {/* ── DELETE (absolute bottom, very subtle) ── */}
+            {onDelete && (
+              <div className="pt-8 mt-8 border-t border-border/30">
+                {!showDeleteConfirm ? (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="text-xs text-red-400/40 hover:text-red-400/70 transition-colors"
+                  >
+                    Excluir job
+                  </button>
+                ) : (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg space-y-2">
+                    <p className="text-sm text-red-400">
+                      Digite seu nome para confirmar a exclusao:
+                    </p>
+                    <input
+                      type="text"
+                      value={deleteConfirmName}
+                      onChange={(e) => setDeleteConfirmName(e.target.value)}
+                      placeholder="Seu nome..."
+                      autoFocus
+                      className="w-full px-3 py-2 bg-bg-card border border-red-500/30 rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-red-400"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (deleteConfirmName.trim().length >= 2) {
+                            onDelete(job.id)
+                          }
+                        }}
+                        disabled={deleteConfirmName.trim().length < 2}
+                        className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Confirmar exclusao
+                      </button>
+                      <button
+                        onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
+                        className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── RIGHT COLUMN (sidebar) ── */}
+          <div className="w-[320px] flex-shrink-0 p-5 space-y-5 overflow-y-auto">
+
+            {/* STATUS */}
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Status</span>
+              <div className="mt-2">
+                {job.em_producao_por === currentUserId ? (
+                  <button
+                    onClick={() => onEmProducaoToggle?.(job.id)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                  >
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                     </span>
-                    Produzindo — Parar
-                  </>
+                    Em Producao
+                  </button>
                 ) : (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-text-muted" />
-                    Estou fazendo este job
-                  </>
+                  <div className="flex items-center gap-2">
+                    {currentColuna?.cor && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
+                    )}
+                    <span className="text-sm text-text-secondary">{currentColuna?.nome ?? 'Sem coluna'}</span>
+                  </div>
                 )}
-              </button>
-              {job.em_producao_por && job.em_producao_por !== currentUserId && (
-                <p className="text-xs text-text-muted mt-1">Outro membro esta produzindo este job</p>
-              )}
+                {job.em_producao_por && job.em_producao_por !== currentUserId && (
+                  <p className="text-[10px] text-text-muted mt-1">Outro membro esta produzindo</p>
+                )}
+              </div>
             </div>
-          )}
 
-          {/* Tags — editable */}
-          <div className="relative">
-            <span className="text-xs text-text-muted block mb-2">Tags</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {job.tags.map((tag) => TAGS[tag] && (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 rounded-sm text-xs font-medium"
-                  style={{
-                    backgroundColor: `${TAGS[tag].color}20`,
-                    color: TAGS[tag].color,
-                  }}
-                >
-                  {TAGS[tag].label}
-                </span>
-              ))}
-              <button
-                onClick={() => setShowTagPicker((v) => !v)}
-                className="inline-flex items-center justify-center w-5 h-5 rounded-sm text-xs text-text-muted hover:text-accent hover:bg-bg-card transition-colors"
-                title="Editar tags"
-              >
-                +
-              </button>
-            </div>
-            {showTagPicker && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
-                <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-2 w-52 max-h-72 overflow-y-auto">
-                  {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                    ([value, config]) => {
-                      const active = job.tags.includes(value)
-                      return (
-                        <button
-                          key={value}
-                          onClick={() => toggleJobTag(value)}
-                          className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-left transition-colors ${
-                            active ? 'bg-bg-card' : 'hover:bg-bg-card'
-                          }`}
+            {/* GOOGLE DRIVE */}
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Google Drive</span>
+              <div className="mt-2">
+                {!editingDriveUrl ? (
+                  <button
+                    onClick={() => { setDriveUrlInput(job.drive_folder_url ?? ''); setEditingDriveUrl(true) }}
+                    className={`flex items-center gap-2 text-sm transition-colors ${
+                      job.drive_folder_url
+                        ? 'text-accent hover:text-accent-hover'
+                        : 'text-text-muted hover:text-text-secondary'
+                    }`}
+                  >
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    {job.drive_folder_url ? 'Abrir pasta do job' : '+ Adicionar link'}
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="url"
+                      value={driveUrlInput}
+                      onChange={(e) => setDriveUrlInput(e.target.value)}
+                      placeholder="Cole a URL da pasta do Drive..."
+                      autoFocus
+                      className="w-full px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveDriveUrl()
+                        if (e.key === 'Escape') setEditingDriveUrl(false)
+                      }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveDriveUrl}
+                        disabled={savingDriveUrl}
+                        className="px-3 py-1 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50"
+                      >
+                        {savingDriveUrl ? '...' : 'Salvar'}
+                      </button>
+                      {job.drive_folder_url && (
+                        <a
+                          href={job.drive_folder_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent hover:text-accent-hover text-xs"
                         >
-                          <span
-                            className="w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: config.color }}
-                          />
-                          <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
-                            {config.label}
-                          </span>
-                          {active && (
-                            <span className="ml-auto text-accent text-[10px]">&#10003;</span>
-                          )}
-                        </button>
-                      )
-                    }
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Freela */}
-          <div>
-            <span className="text-xs text-text-muted block mb-2">Freela</span>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                value={freelaNome}
-                onChange={(e) => setFreelaNome(e.target.value)}
-                onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                placeholder="Nome do freela"
-                className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-              />
-              <input
-                type="text"
-                value={freelaFuncao}
-                onChange={(e) => setFreelaFuncao(e.target.value)}
-                onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                placeholder="Funcao (ex: Motion Designer)"
-                className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-              />
-            </div>
-          </div>
-
-          {/* Entregas */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-text-muted">
-                Entregas {entregas.length > 0 && (
-                  <span className="text-text-secondary font-medium ml-1">
-                    {entregas.filter((e) => e.concluida).length}/{entregas.length}
-                  </span>
+                          Abrir
+                        </a>
+                      )}
+                      <button
+                        onClick={() => setEditingDriveUrl(false)}
+                        className="text-text-muted hover:text-text-primary text-xs ml-auto"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </span>
+              </div>
             </div>
 
-            {entregas.length > 0 && (
-              <div className="space-y-1.5 mb-3">
-                {entregas.map((entrega) => (
+            {/* COMENTARIOS */}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Comentarios</span>
+                <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+                  {comentarios.length}
+                </span>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {loadingComments ? (
+                  <p className="text-xs text-text-muted italic">Carregando...</p>
+                ) : comentarios.length === 0 ? (
+                  <p className="text-xs text-text-muted italic">
+                    Nenhum comentario ainda.
+                  </p>
+                ) : null}
+
+                {comentarios.map((c) => (
                   <div
-                    key={entrega.id}
-                    className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
-                      entrega.concluida
+                    key={c.id}
+                    className={`p-3 rounded-lg border transition-colors ${
+                      c.resolvido
                         ? 'bg-bg-primary border-border opacity-60'
                         : 'bg-bg-card border-border'
                     }`}
                   >
-                    <button
-                      onClick={() => toggleEntrega(entrega.id)}
-                      className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                        entrega.concluida
-                          ? 'bg-accent border-accent text-bg-primary'
-                          : 'border-border hover:border-accent'
-                      }`}
-                    >
-                      {entrega.concluida && (
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                    <span className={`text-sm flex-1 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
-                      {entrega.nome}
-                    </span>
-                    {/* Deadline per entrega */}
-                    {(() => {
-                      const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
-                      return (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <input
-                            type="date"
-                            value={entrega.data_entrega ?? ''}
-                            onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
-                            className="w-[100px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
-                          />
-                          <input
-                            type="time"
-                            value={entrega.hora_entrega_cliente ?? ''}
-                            onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
-                            className="w-[70px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
-                            title="Hora do cliente"
-                          />
-                          <select
-                            value={String(entrega.margem_horas ?? 4)}
-                            onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
-                            className="w-[52px] px-0.5 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent"
-                            title="Margem de revisao"
-                          >
-                            <option value="0">0h</option>
-                            <option value="2">-2h</option>
-                            <option value="4">-4h</option>
-                            <option value="6">-6h</option>
-                            <option value="8">-8h</option>
-                          </select>
-                          {ep && ep.countdown && (
-                            <span className="text-[10px] font-mono font-semibold" style={{ color: ep.color }}>
-                              {ep.countdown}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })()}
-                    <div className="relative">
+                    <div className="flex items-start gap-2">
                       <button
-                        onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
-                        className={`px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors ${
-                          entrega.tag && TAGS[entrega.tag]
-                            ? ''
-                            : 'text-text-muted hover:text-text-secondary border border-dashed border-border'
+                        onClick={() => toggleResolvido(c.id)}
+                        className={`mt-0.5 w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                          c.resolvido
+                            ? 'bg-accent border-accent text-bg-primary'
+                            : 'border-border hover:border-accent'
                         }`}
-                        style={entrega.tag && TAGS[entrega.tag] ? {
-                          backgroundColor: `${TAGS[entrega.tag].color}20`,
-                          color: TAGS[entrega.tag].color,
-                        } : undefined}
-                        title="Editar tag"
                       >
-                        {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
+                        {c.resolvido && (
+                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
                       </button>
-                      {editingEntregaTagId === entrega.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
-                          <div className="absolute right-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-1.5 w-44 max-h-60 overflow-y-auto">
-                            <button
-                              onClick={() => updateEntregaTag(entrega.id, null)}
-                              className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
-                                !entrega.tag ? 'bg-bg-card' : 'hover:bg-bg-card'
-                              }`}
-                            >
-                              <span className="w-2 h-2 rounded-full bg-border flex-shrink-0" />
-                              <span className="text-text-muted">Nenhuma</span>
-                            </button>
-                            {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                              ([value, config]) => (
-                                <button
-                                  key={value}
-                                  onClick={() => updateEntregaTag(entrega.id, value)}
-                                  className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
-                                    entrega.tag === value ? 'bg-bg-card' : 'hover:bg-bg-card'
-                                  }`}
-                                >
-                                  <span
-                                    className="w-2 h-2 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: config.color }}
-                                  />
-                                  <span className={entrega.tag === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
-                                    {config.label}
-                                  </span>
-                                  {entrega.tag === value && (
-                                    <span className="ml-auto text-accent text-[10px]">&#10003;</span>
-                                  )}
-                                </button>
-                              )
-                            )}
-                          </div>
-                        </>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {/* Avatar initials */}
+                          <span className="w-5 h-5 rounded-md bg-accent/15 text-accent text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                            {(c.autor?.nome ?? 'M').charAt(0).toUpperCase()}
+                          </span>
+                          <span className="text-xs font-semibold text-text-primary">
+                            {c.autor?.nome ?? 'Membro'}
+                          </span>
+                          <span className="text-[10px] text-text-muted ml-auto flex-shrink-0">
+                            {relativeTime(c.created_at)}
+                          </span>
+                        </div>
+                        <p className={`text-xs mt-1 leading-relaxed ${c.resolvido ? 'line-through text-text-muted' : 'text-text-secondary'}`}>
+                          {renderMentionText(c.texto)}
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => deleteEntrega(entrega.id)}
-                      className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
-                      title="Remover"
-                    >
-                      &times;
-                    </button>
                   </div>
                 ))}
               </div>
-            )}
 
-            <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap">
-              <input
-                type="text"
-                value={novaEntregaNome}
-                onChange={(e) => setNovaEntregaNome(e.target.value)}
-                placeholder="Nome da entrega..."
-                className="flex-1 min-w-[120px] px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
-              />
-              <input
-                type="date"
-                value={novaEntregaData}
-                onChange={(e) => setNovaEntregaData(e.target.value)}
-                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
-                title="Data de entrega"
-              />
-              <input
-                type="time"
-                value={novaEntregaHora}
-                onChange={(e) => setNovaEntregaHora(e.target.value)}
-                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
-                title="Hora do cliente"
-              />
-              <select
-                value={novaEntregaMargem}
-                onChange={(e) => setNovaEntregaMargem(e.target.value)}
-                className="px-1 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
-                title="Margem"
-              >
-                <option value="0">0h</option>
-                <option value="2">-2h</option>
-                <option value="4">-4h</option>
-                <option value="6">-6h</option>
-                <option value="8">-8h</option>
-              </select>
-              <select
-                value={novaEntregaTag}
-                onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
-                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
-              >
-                <option value="">Tag</option>
-                {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                  ([value, config]) => (
-                    <option key={value} value={value}>{config.label}</option>
-                  )
-                )}
-              </select>
-              <button
-                type="submit"
-                disabled={!novaEntregaNome.trim() || addingEntrega}
-                className="px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {addingEntrega ? '...' : '+'}
-              </button>
-            </form>
-          </div>
-
-          <div className="border-t border-border" />
-
-          {/* Files */}
-          <FileUpload
-            jobId={job.id}
-            arquivos={arquivos}
-            onUpload={handleFileUpload}
-            onDelete={handleFileDelete}
-          />
-
-          {/* Delete */}
-          {onDelete && (
-            <div className="border-t border-border pt-4">
-              {!showDeleteConfirm ? (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
-                >
-                  Excluir job
-                </button>
-              ) : (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md space-y-2">
-                  <p className="text-sm text-red-400">
-                    Digite seu nome para confirmar a exclusao:
-                  </p>
-                  <input
-                    type="text"
-                    value={deleteConfirmName}
-                    onChange={(e) => setDeleteConfirmName(e.target.value)}
-                    placeholder="Seu nome..."
-                    autoFocus
-                    className="w-full px-3 py-2 bg-bg-card border border-red-500/30 rounded-md text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-red-400"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        if (deleteConfirmName.trim().length >= 2) {
-                          onDelete(job.id)
-                        }
-                      }}
-                      disabled={deleteConfirmName.trim().length < 2}
-                      className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-md hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Confirmar exclusao
-                    </button>
-                    <button
-                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
-                      className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="border-t border-border" />
-
-          {/* Comments */}
-          <div>
-            <h3 className="text-sm font-semibold text-text-primary mb-3">
-              Comentarios ({comentarios.length})
-            </h3>
-
-            {loadingComments ? (
-              <p className="text-sm text-text-muted italic mb-3">Carregando...</p>
-            ) : comentarios.length === 0 ? (
-              <p className="text-sm text-text-muted italic mb-3">
-                Nenhum comentario ainda.
-              </p>
-            ) : null}
-
-            <div className="space-y-2 mb-4">
-              {comentarios.map((c) => (
-                <div
-                  key={c.id}
-                  className={`flex items-start gap-3 p-3 rounded-md border transition-colors ${
-                    c.resolvido
-                      ? 'bg-bg-primary border-border opacity-60'
-                      : 'bg-bg-card border-border'
-                  }`}
-                >
-                  <button
-                    onClick={() => toggleResolvido(c.id)}
-                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                      c.resolvido
-                        ? 'bg-accent border-accent text-bg-primary'
-                        : 'border-border hover:border-accent'
-                    }`}
-                  >
-                    {c.resolvido && (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-semibold text-accent">
-                        {c.autor?.nome ?? 'Membro'}
-                      </span>
-                    </div>
-                    <p className={`text-sm ${c.resolvido ? 'line-through text-text-muted' : 'text-text-primary'}`}>
-                      {renderMentionText(c.texto)}
-                    </p>
-                    <span className="text-xs text-text-muted mt-1 block">
-                      {new Date(c.created_at).toLocaleDateString('pt-BR', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* New comment form with @mention */}
-            <form onSubmit={handleAddComment} className="relative">
-              <div className="flex gap-2">
-                <div className="relative flex-1 bg-bg-card border border-border rounded-md focus-within:border-accent">
-                  {/* Highlight overlay — renders colored @mentions on top of the input */}
+              {/* New comment form with @mention */}
+              <form onSubmit={handleAddComment} className="relative mt-3">
+                <div className="relative bg-bg-card border border-border rounded-lg focus-within:border-accent">
+                  {/* Highlight overlay */}
                   <div
                     aria-hidden
-                    className="absolute inset-0 px-3 py-2 text-sm pointer-events-none overflow-hidden whitespace-pre z-[1]"
+                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none overflow-hidden whitespace-pre z-[1]"
                   >
                     {novoComentario.split(/(@\S+)/g).map((part, i) =>
                       part.startsWith('@') ? (
@@ -1024,31 +1139,31 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                     value={novoComentario}
                     onChange={(e) => handleCommentInput(e.target.value)}
                     onKeyDown={handleCommentKeyDown}
-                    placeholder="Comentar... (use @ para mencionar)"
-                    className="w-full px-3 py-2 bg-transparent text-sm placeholder-text-muted focus:outline-none relative"
+                    placeholder="Comentar... (@ para mencionar)"
+                    className="w-full px-3 py-2 bg-transparent text-xs placeholder-text-muted focus:outline-none relative"
                     style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
                   />
 
                   {/* @mention dropdown */}
                   {showMentionDropdown && filteredMembros.length > 0 && (
-                    <div className="absolute bottom-full left-0 mb-1 w-64 bg-bg-elevated border border-border rounded-md shadow-elevated overflow-hidden z-50">
+                    <div className="absolute bottom-full left-0 mb-1 w-full bg-bg-primary border border-border rounded-lg shadow-elevated overflow-hidden z-50">
                       {filteredMembros.map((m, i) => (
                         <button
                           key={m.id}
                           type="button"
                           onClick={() => handleMentionSelect(m)}
-                          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
                             i === mentionIndex
                               ? 'bg-accent/15 text-accent'
-                              : 'text-text-primary hover:bg-bg-tertiary'
+                              : 'text-text-primary hover:bg-bg-card'
                           }`}
                         >
-                          <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">
+                          <span className="w-5 h-5 rounded-md bg-accent/20 text-accent text-[9px] font-bold flex items-center justify-center">
                             {m.nome.charAt(0).toUpperCase()}
                           </span>
-                          <div>
+                          <div className="min-w-0">
                             <span className="font-medium">{m.nome}</span>
-                            <span className="text-xs text-text-muted ml-2">{m.email}</span>
+                            <span className="text-[10px] text-text-muted ml-1.5">{m.email}</span>
                           </div>
                         </button>
                       ))}
@@ -1058,12 +1173,12 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                 <button
                   type="submit"
                   disabled={!novoComentario.trim() || sendingComment}
-                  className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="mt-2 w-full px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {sendingComment ? '...' : 'Enviar'}
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       </div>
