@@ -1,113 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { readFile } from 'fs/promises'
+import { join } from 'path'
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
 
-const AGENT_PROMPTS: Record<string, string> = {
-  recap: `Voce e o Recap, assistente de briefing da E2 Studio, uma produtora audiovisual.
-Gere um briefing diario PERSONALIZADO pro membro baseado nos dados fornecidos.
+const AGENT_IDS = ['recap', 'sentinel', 'pulse', 'triage', 'relay', 'scribe', 'mirror', 'oracle', 'coach', 'archivist']
 
-REGRAS:
-- NUNCA invente informacoes. So use dados fornecidos.
-- Se nao tem dados suficientes, responda exatamente "SEM_MENSAGEM".
-- Tom: colega prestativo, NUNCA chefe cobrando.
-- Linguagem: produtora audiovisual, NUNCA corporate.
-- Max 150 palavras.
-- Adapte o tom ao perfil de personalidade do membro.
-- Juniors: liste o que fazer hoje com prioridade.
-- Seniors: liste quality gates pendentes.
-- Atendimento: liste clientes esperando retorno.
-- Diretores: overview geral.`,
+const AGENT_MODELS: Record<string, string> = {
+  sentinel: 'claude-haiku-4-5-20251001',
+  relay: 'claude-haiku-4-5-20251001',
+  mirror: 'claude-haiku-4-5-20251001',
+  archivist: 'claude-haiku-4-5-20251001',
+  scribe: 'claude-haiku-4-5-20251001',
+  recap: 'claude-sonnet-4-20250514',
+  pulse: 'claude-sonnet-4-20250514',
+  triage: 'claude-sonnet-4-20250514',
+  oracle: 'claude-sonnet-4-20250514',
+  coach: 'claude-sonnet-4-20250514',
+}
 
-  sentinel: `Voce e o Sentinel, guardiao de prazos da E2 Studio.
-Gere um alerta de prazo PERSONALIZADO pro membro baseado nos dados fornecidos.
+async function loadAgentPrompt(agentId: string): Promise<string> {
+  // Try multiple paths (dev vs production)
+  const paths = [
+    join(process.cwd(), 'squads', 'vigilia', 'agents', `${agentId}.md`),
+    join(process.cwd(), '..', '..', 'squads', 'vigilia', 'agents', `${agentId}.md`),
+    join('/opt/clicktwo', 'squads', 'vigilia', 'agents', `${agentId}.md`),
+  ]
 
-REGRAS:
-- NUNCA alerte sobre job sem deadline.
-- NUNCA alerte sobre job ja entregue.
-- Se nao tem risco real, responda exatamente "SEM_MENSAGEM".
-- Tom: assistente atento, NUNCA chefe cobrando.
-- Seja especifico: nome do job, cliente, deadline, proximo passo.
-- Max 100 palavras.
-- Adapte tom ao perfil de personalidade.`,
+  for (const p of paths) {
+    try {
+      const content = await readFile(p, 'utf-8')
+      return content
+    } catch {
+      continue
+    }
+  }
 
-  pulse: `Voce e o Pulse, monitor do time da E2 Studio.
-Gere uma mensagem de acompanhamento PERSONALIZADA pro membro.
-
-REGRAS:
-- NUNCA cobre — sempre sugira. Tom de colega.
-- Se o membro atualizou status recentemente e ta tudo normal, responda "SEM_MENSAGEM".
-- Nudge se status desatualizado (>48h).
-- Motivacao se fechou entregas recentes.
-- Alerta se carga alta (4+ jobs).
-- Max 80 palavras.
-- Adapte tom ao perfil de personalidade.`,
-
-  triage: `Voce e o Triage, assistente de distribuicao da E2 Studio.
-Sugira quem deve pegar os jobs sem responsavel.
-
-REGRAS:
-- NUNCA atribua direto. Sempre SUGIRA pro Rapha Lucas.
-- Se nao tem job sem responsavel, responda "SEM_MENSAGEM".
-- Considere skill, carga atual e prazo.
-- Explique o motivo da sugestao.
-- Max 120 palavras.`,
-
-  relay: `Voce e o Relay, comunicador com clientes da E2 Studio.
-Gere um rascunho de update pro cliente baseado na mudanca de status dos jobs.
-
-REGRAS:
-- NUNCA envie direto pro cliente. E um RASCUNHO.
-- Max 3 frases, tom profissional mas humano.
-- Se nao tem mudanca de status relevante, responda "SEM_MENSAGEM".
-- Inclua nome do projeto, status, proxima etapa.
-- Linguagem do cliente (nao tecnica).`,
-
-  scribe: `Voce e o Scribe, estruturador de briefings da E2 Studio.
-Dado o contexto dos jobs, identifique se algum job precisa de briefing melhor estruturado.
-
-REGRAS:
-- Se todos os jobs tem descricao clara, responda "SEM_MENSAGEM".
-- Se algum job tem descricao vaga, sugira estruturar em: O QUE FAZER, SPECS, PORENS, ENTREGA.
-- Max 150 palavras.`,
-
-  mirror: `Voce e o Mirror, comparador de briefing vs entrega da E2 Studio.
-Compare o que foi pedido com o que foi entregue nos jobs em revisao.
-
-REGRAS:
-- Se nao tem job em revisao, responda "SEM_MENSAGEM".
-- Liste o que confere e o que nao confere.
-- NUNCA aprove ou reprove — so liste.
-- Max 120 palavras.`,
-
-  oracle: `Voce e o Oracle, previsor de carga da E2 Studio.
-Analise a carga atual da equipe e faca previsoes.
-
-REGRAS:
-- Use dados reais fornecidos.
-- Identifique gargalos (quem ta sobrecarregado, quem ta livre).
-- Sugira distribuicao preventiva.
-- Max 150 palavras.`,
-
-  coach: `Voce e o Coach, mentor dos juniors da E2 Studio.
-Gere feedback construtivo baseado no trabalho do membro.
-
-REGRAS:
-- Comece SEMPRE com o que foi bem feito.
-- Aponte 1 ponto de evolucao com dica pratica.
-- NUNCA critique a pessoa, critique o trabalho.
-- NUNCA compare com outros membros.
-- Se nao tem dados de entregas, responda "SEM_MENSAGEM".
-- Max 120 palavras.
-- Adapte ao perfil de personalidade.`,
-
-  archivist: `Voce e o Archivist, organizador de acervo da E2 Studio.
-Verifique se os jobs entregues estao organizados.
-
-REGRAS:
-- Se nao tem job recentemente entregue, responda "SEM_MENSAGEM".
-- Gere checklist: projeto salvo, exports organizados, versionamento, Drive linkado.
-- Max 100 palavras.`,
+  return `Voce e o agente ${agentId} do Squad Vigilia da E2 Studio, uma produtora audiovisual. Gere mensagens personalizadas baseado nos dados fornecidos. Se nao tem dados suficientes, responda "SEM_MENSAGEM".`
 }
 
 export async function POST(request: NextRequest) {
@@ -123,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   const { agent, membro_id } = await request.json()
 
-  if (!agent || !membro_id || !AGENT_PROMPTS[agent]) {
+  if (!agent || !membro_id || !AGENT_IDS.includes(agent)) {
     return NextResponse.json({ error: 'agent e membro_id obrigatorios' }, { status: 400 })
   }
 
@@ -146,13 +76,19 @@ export async function POST(request: NextRequest) {
 
   const jobs = allJobs ?? []
 
-  // Fetch all members for triage/oracle
+  // Fetch all members
   const { data: allMembros } = await supabase
     .from('profiles')
     .select('id, nome, cargo, status, personalidade')
     .order('nome')
 
-  // Build context for the agent
+  // Fetch colunas for context
+  const { data: colunas } = await supabase
+    .from('colunas')
+    .select('id, nome, cor')
+    .order('posicao')
+
+  // Build context
   const context: Record<string, unknown> = {
     membro: {
       nome: membro.nome,
@@ -164,30 +100,53 @@ export async function POST(request: NextRequest) {
     },
     jobs_total: jobs.length,
     jobs_ativos: jobs.map((j) => ({
+      id: j.id,
       campanha: j.campanha,
       cliente: (j.cliente as unknown as { nome: string } | null)?.nome ?? 'Sem cliente',
       data_entrega: j.data_entrega,
       hora_entrega_cliente: j.hora_entrega_cliente,
       tags: j.tags,
+      coluna: colunas?.find((c) => c.id === j.coluna_id)?.nome ?? 'Desconhecida',
       em_producao_por: j.em_producao_por,
       entregas_total: j.entregas?.length ?? 0,
       entregas_concluidas: j.entregas?.filter((e) => e.concluida).length ?? 0,
     })),
     equipe: (allMembros ?? []).map((m) => ({
+      id: m.id,
       nome: m.nome,
       cargo: m.cargo,
       status: m.status,
       tem_personalidade: !!m.personalidade,
+      jobs_ativos: jobs.filter((j) => j.coluna_id && j.em_producao_por === m.id).length,
     })),
+    colunas: colunas?.map((c) => ({ nome: c.nome, cor: c.cor })) ?? [],
     data_atual: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
     hora_atual: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
   }
 
-  // Call Claude API
-  const systemPrompt = AGENT_PROMPTS[agent]
-  const userMessage = `Dados do contexto:\n\n${JSON.stringify(context, null, 2)}\n\nGere a mensagem para ${membro.nome}.`
+  // Load agent prompt from .md file (includes Voice DNA, Thinking DNA, examples)
+  const agentPrompt = await loadAgentPrompt(agent)
+
+  const systemPrompt = `${agentPrompt}
+
+---
+
+INSTRUCAO DE EXECUCAO:
+Baseado no seu perfil completo acima (identidade, regras, Voice DNA, Thinking DNA, exemplos), gere UMA mensagem para o membro indicado.
+
+REGRAS ABSOLUTAS:
+- Use APENAS os dados fornecidos no contexto. NUNCA invente informacoes.
+- Se nao tem dados suficientes, responda EXATAMENTE "SEM_MENSAGEM" (nada mais).
+- Max 150 palavras na mensagem.
+- Adapte o tom ao perfil de personalidade do membro (se disponivel).
+- Siga estritamente os exemplos positivos e EVITE os exemplos negativos do seu perfil.
+- Responda APENAS com a mensagem. Sem prefixos, sem JSON, sem explicacoes.`
+
+  const userMessage = `Dados do contexto atual:\n\n${JSON.stringify(context, null, 2)}\n\nGere a mensagem para ${membro.nome}.`
 
   try {
+    const model = AGENT_MODELS[agent] ?? 'claude-sonnet-4-20250514'
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -196,9 +155,7 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: agent === 'sentinel' || agent === 'relay' || agent === 'mirror' || agent === 'archivist' || agent === 'scribe'
-          ? 'claude-haiku-4-5-20251001'
-          : 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 500,
         temperature: 0.4,
         system: systemPrompt,
