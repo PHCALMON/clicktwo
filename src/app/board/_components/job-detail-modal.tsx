@@ -681,6 +681,55 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                     </select>
                   </div>
                 </div>
+                {/* Responsavel */}
+                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
+                    Responsavel
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const assignee = membros.find((m) => m.id === job.assignee_id)
+                      if (assignee) {
+                        return (
+                          <div
+                            className="flex items-center justify-center flex-shrink-0"
+                            style={{
+                              width: '24px', height: '24px', borderRadius: '9999px',
+                              background: 'rgba(99,102,241,0.15)', color: '#818CF8',
+                              fontWeight: 700, fontSize: '10px',
+                            }}
+                          >
+                            {assignee.avatar_url ? (
+                              <img src={assignee.avatar_url} alt="" style={{ width: '24px', height: '24px', borderRadius: '9999px', objectFit: 'cover' }} />
+                            ) : (
+                              assignee.nome.substring(0, 2).toUpperCase()
+                            )}
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+                    <select
+                      value={job.assignee_id ?? ''}
+                      onChange={async (e) => {
+                        const newAssigneeId = e.target.value || null
+                        onUpdate({ ...job, assignee_id: newAssigneeId })
+                        await fetch(`/api/jobs/${job.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ assignee_id: newAssigneeId }),
+                        })
+                      }}
+                      className="w-full focus:outline-none"
+                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
+                    >
+                      <option value="" style={{ background: '#1C1C1E' }}>Sem responsavel</option>
+                      {membros.map((m) => (
+                        <option key={m.id} value={m.id} style={{ background: '#1C1C1E' }}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1078,16 +1127,29 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                     </span>
                   </button>
                 ) : onEmProducaoToggle ? (
-                  <button
-                    onClick={() => onEmProducaoToggle(job.id)}
-                    className="flex items-center gap-2 w-full"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    {currentColuna?.cor && (
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
-                    )}
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
-                  </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {currentColuna?.cor && (
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
+                      )}
+                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
+                    </div>
+                    <button
+                      onClick={() => onEmProducaoToggle(job.id)}
+                      className="flex items-center justify-center gap-2 w-full transition-all hover:opacity-80"
+                      style={{
+                        padding: '10px 14px', borderRadius: '8px', cursor: 'pointer',
+                        background: 'rgba(74,144,217,0.1)', border: '1px solid rgba(74,144,217,0.25)',
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5" style={{ color: '#4A90D9' }}>
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#4A90D9' }}>
+                        Produzir este job
+                      </span>
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     {currentColuna?.cor && (
