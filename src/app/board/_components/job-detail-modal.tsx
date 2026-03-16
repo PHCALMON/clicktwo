@@ -418,23 +418,34 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
     const diffMs = now.getTime() - date.getTime()
     const diffMin = Math.floor(diffMs / 60000)
     if (diffMin < 1) return 'agora'
-    if (diffMin < 60) return `${diffMin}min`
+    if (diffMin < 60) return `ha ${diffMin}min`
     const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `${diffH}h`
+    if (diffH < 24) return `ha ${diffH}h`
     const diffD = Math.floor(diffH / 24)
-    if (diffD < 30) return `${diffD}d`
+    if (diffD < 30) return `ha ${diffD}d`
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
       <div
-        className="bg-bg-primary border border-border rounded-xl shadow-elevated w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col"
+        className="w-full max-w-[880px] mx-4 flex flex-col max-h-[90vh]"
+        style={{
+          background: '#141416',
+          border: '1px solid #2A2A2C',
+          borderRadius: '12px',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+          overflow: 'hidden',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── HEADER ── */}
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center justify-between" style={{ padding: '20px 28px', borderBottom: '1px solid #2A2A2C' }}>
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <ClientLogo
               nome={job.cliente?.nome ?? 'Cliente'}
               dominio={job.cliente?.dominio}
@@ -442,20 +453,26 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
               size="lg"
             />
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-text-primary truncate">{job.campanha}</h2>
-              <p className="text-sm text-text-muted">
+              <h2 className="font-bold text-white truncate" style={{ fontSize: '18px' }}>{job.campanha}</h2>
+              <p style={{ fontSize: '13px', color: '#8E8E93', marginTop: '2px' }}>
                 {job.cliente?.nome ?? 'Cliente'} &middot; {TIPOS_JOB[job.tipo_job]}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-            {/* Drive link icon */}
+            {/* Drive link icon button */}
             {job.drive_folder_url && (
               <a
                 href={job.drive_folder_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-1.5 rounded-lg text-text-muted hover:text-accent hover:bg-bg-card transition-colors"
+                className="flex items-center justify-center transition-all"
+                style={{
+                  width: '36px', height: '36px', borderRadius: '6px',
+                  border: '1px solid #2A2A2C', color: '#5A5A5E',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93'; e.currentTarget.style.background = '#252528' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
                 title="Abrir pasta no Drive"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -463,31 +480,37 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                 </svg>
               </a>
             )}
-            {/* Em producao toggle icon */}
-            {onEmProducaoToggle && (
+            {/* Delete icon button (trash) */}
+            {onDelete && (
               <button
-                onClick={() => onEmProducaoToggle(job.id)}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  job.em_producao_por === currentUserId
-                    ? 'text-emerald-400 bg-emerald-500/15'
-                    : 'text-text-muted hover:text-text-secondary hover:bg-bg-card'
-                }`}
-                title={job.em_producao_por === currentUserId ? 'Parar producao' : 'Iniciar producao'}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center justify-center transition-all"
+                style={{
+                  width: '36px', height: '36px', borderRadius: '6px',
+                  border: '1px solid #2A2A2C', color: '#5A5A5E', background: 'none',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#F24822'; e.currentTarget.style.background = 'rgba(242,72,34,0.1)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
+                title="Deletar"
               >
-                {job.em_producao_por === currentUserId ? (
-                  <span className="relative flex h-4 w-4 items-center justify-center">
-                    <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3" />
-                  </svg>
-                )}
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
               </button>
             )}
-            {/* Close */}
-            <button onClick={onClose} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-bg-card transition-colors">
+            {/* Close X button */}
+            <button
+              onClick={onClose}
+              className="flex items-center justify-center transition-all"
+              style={{
+                width: '36px', height: '36px', borderRadius: '6px',
+                border: '1px solid #2A2A2C', color: '#5A5A5E', background: 'none',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93'; e.currentTarget.style.background = '#252528' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
+              title="Fechar"
+            >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
@@ -496,67 +519,133 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
           </div>
         </div>
 
-        {/* ── PRIORITY BANNER ── */}
-        <div
-          className="flex items-center justify-between px-5 py-2"
-          style={{ backgroundColor: `${prio.color}15` }}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className={`w-2 h-2 rounded-full${prio.pulse ? ' animate-pulse' : ''}`}
-              style={{ backgroundColor: prio.color }}
-            />
-            <span className="text-sm font-medium" style={{ color: prio.color }}>
-              {prio.label}
-            </span>
+        {/* ── DELETE CONFIRMATION (inline, appears below header) ── */}
+        {showDeleteConfirm && (
+          <div className="px-7 py-3" style={{ background: 'rgba(242,72,34,0.08)', borderBottom: '1px solid rgba(242,72,34,0.2)' }}>
+            <p style={{ fontSize: '13px', color: '#F24822', fontWeight: 500, marginBottom: '8px' }}>
+              Digite seu nome para confirmar a exclusao:
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder="Seu nome..."
+                autoFocus
+                className="flex-1 focus:outline-none"
+                style={{
+                  padding: '8px 12px', background: '#1A1A1D', border: '1px solid rgba(242,72,34,0.3)',
+                  borderRadius: '8px', fontSize: '13px', color: '#E5E5E7',
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (deleteConfirmName.trim().length >= 2) {
+                    onDelete?.(job.id)
+                  }
+                }}
+                disabled={deleteConfirmName.trim().length < 2}
+                style={{
+                  padding: '8px 16px', background: '#F24822', color: 'white',
+                  fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
+                  opacity: deleteConfirmName.trim().length < 2 ? 0.4 : 1,
+                  cursor: deleteConfirmName.trim().length < 2 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
+                style={{ fontSize: '12px', color: '#8E8E93', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
-          {prio.countdown && (
-            <span className="text-sm font-mono font-semibold" style={{ color: prio.color }}>
-              {prio.countdown}
-            </span>
-          )}
-        </div>
+        )}
 
         {/* ── TWO-COLUMN BODY ── */}
-        <div className="flex-1 overflow-y-auto flex min-h-0">
+        <div className="flex flex-1 min-h-0" style={{ minHeight: '600px' }}>
 
-          {/* ── LEFT COLUMN (main content) ── */}
-          <div className="flex-1 p-5 space-y-5 overflow-y-auto border-r border-border">
+          {/* ── LEFT COLUMN ── */}
+          <div className="flex-1 overflow-y-auto" style={{ padding: '24px 28px', borderRight: '1px solid #2A2A2C' }}>
+
+            {/* PRIORITY BANNER */}
+            <div
+              className="flex items-center gap-2.5"
+              style={{
+                padding: '12px 16px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                background: `${prio.color}15`,
+                border: `1px solid ${prio.color}33`,
+              }}
+            >
+              <span
+                className={`w-2 h-2 rounded-full flex-shrink-0${prio.pulse ? ' animate-pulse' : ''}`}
+                style={{ backgroundColor: prio.color }}
+              />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: prio.color }}>
+                {prio.label}
+              </span>
+              {prio.countdown && (
+                <span style={{ fontSize: '13px', fontWeight: 700, color: prio.color, marginLeft: 'auto' }}>
+                  {prio.countdown}
+                </span>
+              )}
+            </div>
 
             {/* INFORMACOES */}
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Informacoes</span>
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                <div>
-                  <span className="text-xs text-text-muted block mb-1">Coluna</span>
-                  <div className="flex items-center gap-2">
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Informacoes
+              </div>
+              <div className="grid grid-cols-2" style={{ gap: '12px' }}>
+                {/* Coluna */}
+                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
+                    Coluna
+                  </div>
+                  <div className="flex items-center gap-1.5">
                     {currentColuna?.cor && (
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
                     )}
                     <select
                       value={job.coluna_id}
                       onChange={(e) => handleMoveColumn(e.target.value)}
-                      className="w-full px-2 py-1.5 bg-bg-card border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent"
+                      className="w-full focus:outline-none"
+                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
                     >
                       {colunas.map((c) => (
-                        <option key={c.id} value={c.id}>{c.nome}</option>
+                        <option key={c.id} value={c.id} style={{ background: '#1C1C1E' }}>{c.nome}</option>
                       ))}
                     </select>
                   </div>
                 </div>
-                <div>
-                  <span className="text-xs text-text-muted block mb-1">Tipo</span>
-                  <p className="text-sm text-text-secondary px-2 py-1.5">
+                {/* Tipo */}
+                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
+                    Tipo
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7' }}>
                     {TIPOS_JOB[job.tipo_job]}
-                  </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-text-muted block mb-1">Data Entrega</span>
-                  <p className="text-sm text-text-secondary px-2 py-1.5">{formattedDate}</p>
+                {/* Data Entrega */}
+                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
+                    Data Entrega
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7' }}>
+                    {formattedDate}
+                  </div>
                 </div>
-                <div>
-                  <span className="text-xs text-text-muted block mb-1">Prazo do Cliente</span>
-                  <div className="flex items-center gap-2">
+                {/* Prazo do Cliente */}
+                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
+                    Prazo do Cliente
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <input
                       type="time"
                       value={jobHora}
@@ -564,39 +653,56 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                         setJobHora(e.target.value)
                         handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
                       }}
-                      className="px-2 py-1 bg-bg-card border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
+                      className="focus:outline-none [color-scheme:dark]"
+                      style={{ fontSize: '12px', fontWeight: 600, color: '#8E8E93', background: 'transparent', border: 'none', width: '60px' }}
                     />
+                    {jobHora && (
+                      <>
+                        <span style={{ fontSize: '12px', color: '#5A5A5E', fontWeight: 400 }}>&rarr; interno </span>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: prio.color }}>
+                          {prazoInterno ?? jobHora}
+                        </span>
+                      </>
+                    )}
                     <select
                       value={jobMargem}
                       onChange={(e) => {
                         setJobMargem(e.target.value)
                         handleSaveJobDeadline('margem_horas', e.target.value)
                       }}
-                      className="px-1.5 py-1 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
+                      className="focus:outline-none"
+                      style={{ fontSize: '10px', color: '#5A5A5E', fontWeight: 400, background: 'transparent', border: 'none' }}
                     >
                       <option value="0">Sem margem</option>
-                      <option value="2">-2h</option>
-                      <option value="4">-4h</option>
-                      <option value="6">-6h</option>
-                      <option value="8">-8h</option>
+                      <option value="2">(-2h)</option>
+                      <option value="4">(-4h)</option>
+                      <option value="6">(-6h)</option>
+                      <option value="8">(-8h)</option>
                     </select>
                   </div>
-                  {prazoInterno && (
-                    <span className="text-[10px] text-text-muted mt-1 block">
-                      Interno: {prazoInterno}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
 
             {/* FREELA */}
-            {(job.freela_nome || freelaNome) && (
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Freela</span>
-                <div className="flex items-center gap-3 mt-3">
-                  {/* Avatar initials */}
-                  <div className="w-8 h-8 rounded-lg bg-accent/15 text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Freela
+              </div>
+              {(job.freela_nome || freelaNome) ? (
+                <div
+                  className="flex items-center"
+                  style={{ gap: '12px', padding: '14px', background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px' }}
+                >
+                  {/* Freela avatar — circle, orange */}
+                  <div
+                    className="flex items-center justify-center flex-shrink-0"
+                    style={{
+                      width: '36px', height: '36px', borderRadius: '9999px',
+                      background: 'rgba(255,140,0,0.15)', color: '#FF8C00',
+                      fontWeight: 700, fontSize: '14px',
+                    }}
+                  >
                     {(freelaNome || 'F').substring(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -607,7 +713,8 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                       onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
                       onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                       placeholder="Nome do freela"
-                      className="w-full text-sm font-medium text-text-primary bg-transparent focus:outline-none placeholder-text-muted"
+                      className="w-full focus:outline-none"
+                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
                     />
                     <input
                       type="text"
@@ -616,242 +723,268 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                       onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
                       onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                       placeholder="Funcao (ex: Motion Designer)"
-                      className="w-full text-xs text-text-muted bg-transparent focus:outline-none placeholder-text-muted"
+                      className="w-full focus:outline-none"
+                      style={{ fontSize: '12px', color: '#FF8C00', background: 'transparent', border: 'none' }}
                     />
                   </div>
                 </div>
-              </div>
-            )}
-            {/* Show add-freela link if no freela */}
-            {!job.freela_nome && !freelaNome && (
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Freela</span>
-                <div className="mt-2">
-                  <input
-                    type="text"
-                    value={freelaNome}
-                    onChange={(e) => setFreelaNome(e.target.value)}
-                    onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                    placeholder="+ Adicionar freela"
-                    className="w-full px-2 py-1.5 text-sm text-text-muted bg-transparent border border-dashed border-border rounded-lg focus:outline-none focus:border-accent focus:text-text-primary placeholder-text-muted"
-                  />
-                </div>
-              </div>
-            )}
+              ) : (
+                <input
+                  type="text"
+                  value={freelaNome}
+                  onChange={(e) => setFreelaNome(e.target.value)}
+                  onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                  placeholder="+ Adicionar freela"
+                  className="w-full focus:outline-none"
+                  style={{
+                    padding: '14px', fontSize: '13px', color: '#5A5A5E',
+                    background: 'transparent', border: '1px dashed #2A2A2C', borderRadius: '8px',
+                  }}
+                />
+              )}
+            </div>
 
             {/* ENTREGAS */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Entregas</span>
+            <div style={{ marginBottom: '28px' }}>
+              <div className="flex items-center justify-between" style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                <span>Entregas</span>
                 {entregas.length > 0 && (
-                  <span className="text-[10px] font-bold text-accent">
-                    {entregasConcluidas}/{entregas.length} CONCLUIDAS
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#14AE5C', letterSpacing: 'normal', textTransform: 'uppercase' }}>
+                    {entregasConcluidas}/{entregas.length} concluidas
                   </span>
                 )}
               </div>
 
               {entregas.length > 0 && (
-                <div className="space-y-1.5 mb-3">
-                  {entregas.map((entrega) => (
-                    <div
-                      key={entrega.id}
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${
-                        entrega.concluida
-                          ? 'bg-bg-primary border-border opacity-60'
-                          : 'bg-bg-card border-border'
-                      }`}
-                    >
-                      <button
-                        onClick={() => toggleEntrega(entrega.id)}
-                        className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                          entrega.concluida
-                            ? 'bg-accent border-accent text-bg-primary'
-                            : 'border-border hover:border-accent'
-                        }`}
+                <div>
+                  {entregas.map((entrega) => {
+                    const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
+                    return (
+                      <div
+                        key={entrega.id}
+                        className="flex gap-2.5"
+                        style={{ padding: '10px 0', borderBottom: '1px solid #2A2A2C', alignItems: 'flex-start' }}
                       >
-                        {entrega.concluida && (
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                      <span className={`text-sm flex-1 min-w-0 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
-                        {entrega.nome}
-                      </span>
-                      {/* Tag badge */}
-                      <div className="relative flex-shrink-0">
+                        {/* Checkbox */}
                         <button
-                          onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
-                          className={`px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors ${
-                            entrega.tag && TAGS[entrega.tag]
-                              ? ''
-                              : 'text-text-muted hover:text-text-secondary border border-dashed border-border'
-                          }`}
-                          style={entrega.tag && TAGS[entrega.tag] ? {
-                            backgroundColor: `${TAGS[entrega.tag].color}20`,
-                            color: TAGS[entrega.tag].color,
-                          } : undefined}
-                          title="Editar tag"
+                          onClick={() => toggleEntrega(entrega.id)}
+                          className="flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{
+                            width: '18px', height: '18px', borderRadius: '4px', marginTop: '1px',
+                            border: entrega.concluida ? '2px solid #14AE5C' : '2px solid #3A3A3C',
+                            background: entrega.concluida ? '#14AE5C' : 'transparent',
+                            color: entrega.concluida ? 'white' : 'transparent',
+                          }}
                         >
-                          {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
+                          {entrega.concluida && (
+                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
                         </button>
-                        {editingEntregaTagId === entrega.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
-                            <div className="absolute right-0 top-full mt-1 z-50 bg-bg-primary border border-border rounded-lg shadow-elevated p-1.5 w-44 max-h-60 overflow-y-auto">
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div
+                            style={{
+                              fontSize: '13px', fontWeight: 500,
+                              color: entrega.concluida ? '#5A5A5E' : '#E5E5E7',
+                              textDecoration: entrega.concluida ? 'line-through' : 'none',
+                            }}
+                          >
+                            {entrega.nome}
+                          </div>
+                          {/* Meta row: tag + deadline */}
+                          <div className="flex items-center gap-2" style={{ marginTop: '4px' }}>
+                            {/* Tag badge */}
+                            <div className="relative">
                               <button
-                                onClick={() => updateEntregaTag(entrega.id, null)}
-                                className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
-                                  !entrega.tag ? 'bg-bg-card' : 'hover:bg-bg-card'
-                                }`}
+                                onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
+                                style={{
+                                  fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
+                                  borderRadius: '9999px', padding: '2px 7px',
+                                  background: entrega.tag && TAGS[entrega.tag] ? `${TAGS[entrega.tag].color}26` : 'transparent',
+                                  color: entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].color : '#5A5A5E',
+                                  border: entrega.tag && TAGS[entrega.tag] ? 'none' : '1px dashed #2A2A2C',
+                                  cursor: 'pointer',
+                                }}
+                                title="Editar tag"
                               >
-                                <span className="w-2 h-2 rounded-full bg-border flex-shrink-0" />
-                                <span className="text-text-muted">Nenhuma</span>
+                                {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
                               </button>
-                              {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                                ([value, config]) => (
-                                  <button
-                                    key={value}
-                                    onClick={() => updateEntregaTag(entrega.id, value)}
-                                    className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
-                                      entrega.tag === value ? 'bg-bg-card' : 'hover:bg-bg-card'
-                                    }`}
-                                  >
-                                    <span
-                                      className="w-2 h-2 rounded-full flex-shrink-0"
-                                      style={{ backgroundColor: config.color }}
-                                    />
-                                    <span className={entrega.tag === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
-                                      {config.label}
-                                    </span>
-                                    {entrega.tag === value && (
-                                      <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                              {editingEntregaTagId === entrega.id && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
+                                  <div className="absolute left-0 top-full mt-1 z-50 overflow-y-auto" style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '6px', width: '176px', maxHeight: '240px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+                                    <button
+                                      onClick={() => updateEntregaTag(entrega.id, null)}
+                                      className="flex items-center gap-2 w-full text-left transition-colors"
+                                      style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', background: !entrega.tag ? '#1A1A1D' : 'transparent' }}
+                                    >
+                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#2A2A2C' }} />
+                                      <span style={{ color: '#5A5A5E' }}>Nenhuma</span>
+                                    </button>
+                                    {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                                      ([value, config]) => (
+                                        <button
+                                          key={value}
+                                          onClick={() => updateEntregaTag(entrega.id, value)}
+                                          className="flex items-center gap-2 w-full text-left transition-colors"
+                                          style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', background: entrega.tag === value ? '#1A1A1D' : 'transparent' }}
+                                        >
+                                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: config.color }} />
+                                          <span style={{ color: entrega.tag === value ? '#E5E5E7' : '#8E8E93', fontWeight: entrega.tag === value ? 500 : 400 }}>
+                                            {config.label}
+                                          </span>
+                                          {entrega.tag === value && (
+                                            <span className="ml-auto" style={{ color: '#4A90D9', fontSize: '10px' }}>&#10003;</span>
+                                          )}
+                                        </button>
+                                      )
                                     )}
-                                  </button>
-                                )
+                                  </div>
+                                </>
                               )}
                             </div>
-                          </>
-                        )}
-                      </div>
-                      {/* Deadline per entrega */}
-                      {(() => {
-                        const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
-                        return (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <input
-                              type="date"
-                              value={entrega.data_entrega ?? ''}
-                              onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
-                              className="w-[100px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
-                            />
-                            <input
-                              type="time"
-                              value={entrega.hora_entrega_cliente ?? ''}
-                              onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
-                              className="w-[70px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
-                              title="Hora do cliente"
-                            />
-                            <select
-                              value={String(entrega.margem_horas ?? 4)}
-                              onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
-                              className="w-[52px] px-0.5 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent"
-                              title="Margem de revisao"
-                            >
-                              <option value="0">0h</option>
-                              <option value="2">-2h</option>
-                              <option value="4">-4h</option>
-                              <option value="6">-6h</option>
-                              <option value="8">-8h</option>
-                            </select>
-                            {ep && ep.countdown && (
-                              <span className="text-[10px] font-mono font-semibold" style={{ color: ep.color }}>
-                                {ep.countdown}
-                              </span>
-                            )}
+                            {/* Entrega deadline controls */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <input
+                                type="date"
+                                value={entrega.data_entrega ?? ''}
+                                onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
+                                className="focus:outline-none [color-scheme:dark]"
+                                style={{ width: '90px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
+                              />
+                              <input
+                                type="time"
+                                value={entrega.hora_entrega_cliente ?? ''}
+                                onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
+                                className="focus:outline-none [color-scheme:dark]"
+                                style={{ width: '60px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
+                                title="Hora do cliente"
+                              />
+                              <select
+                                value={String(entrega.margem_horas ?? 4)}
+                                onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
+                                className="focus:outline-none"
+                                style={{ width: '44px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
+                                title="Margem de revisao"
+                              >
+                                <option value="0">0h</option>
+                                <option value="2">-2h</option>
+                                <option value="4">-4h</option>
+                                <option value="6">-6h</option>
+                                <option value="8">-8h</option>
+                              </select>
+                              {ep && ep.countdown && (
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: ep.color, fontFamily: 'monospace' }}>
+                                  {ep.countdown}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )
-                      })()}
-                      <button
-                        onClick={() => deleteEntrega(entrega.id)}
-                        className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
-                        title="Remover"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
+                        </div>
+                        {/* Delete entrega */}
+                        <button
+                          onClick={() => deleteEntrega(entrega.id)}
+                          className="flex-shrink-0 transition-colors"
+                          style={{ fontSize: '14px', color: '#5A5A5E', background: 'none', border: 'none', cursor: 'pointer', marginTop: '2px' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#F24822' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#5A5A5E' }}
+                          title="Remover"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
               {/* Add entrega form */}
-              <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap">
+              <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 0' }}>
                 <input
                   type="text"
                   value={novaEntregaNome}
                   onChange={(e) => setNovaEntregaNome(e.target.value)}
                   placeholder="+ Adicionar entrega"
-                  className="flex-1 min-w-[120px] px-2 py-1.5 bg-bg-card border border-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                  className="flex-1 min-w-[120px] focus:outline-none"
+                  style={{ fontSize: '13px', color: '#5A5A5E', background: 'transparent', border: 'none', cursor: 'text' }}
                 />
-                <input
-                  type="date"
-                  value={novaEntregaData}
-                  onChange={(e) => setNovaEntregaData(e.target.value)}
-                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
-                  title="Data de entrega"
-                />
-                <input
-                  type="time"
-                  value={novaEntregaHora}
-                  onChange={(e) => setNovaEntregaHora(e.target.value)}
-                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
-                  title="Hora do cliente"
-                />
-                <select
-                  value={novaEntregaMargem}
-                  onChange={(e) => setNovaEntregaMargem(e.target.value)}
-                  className="px-1 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
-                  title="Margem"
-                >
-                  <option value="0">0h</option>
-                  <option value="2">-2h</option>
-                  <option value="4">-4h</option>
-                  <option value="6">-6h</option>
-                  <option value="8">-8h</option>
-                </select>
-                <select
-                  value={novaEntregaTag}
-                  onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
-                  className="px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-secondary focus:outline-none focus:border-accent"
-                >
-                  <option value="">Tag</option>
-                  {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                    ([value, config]) => (
-                      <option key={value} value={value}>{config.label}</option>
-                    )
-                  )}
-                </select>
-                <button
-                  type="submit"
-                  disabled={!novaEntregaNome.trim() || addingEntrega}
-                  className="px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {addingEntrega ? '...' : '+'}
-                </button>
+                {novaEntregaNome.trim() && (
+                  <>
+                    <input
+                      type="date"
+                      value={novaEntregaData}
+                      onChange={(e) => setNovaEntregaData(e.target.value)}
+                      className="focus:outline-none [color-scheme:dark]"
+                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
+                      title="Data de entrega"
+                    />
+                    <input
+                      type="time"
+                      value={novaEntregaHora}
+                      onChange={(e) => setNovaEntregaHora(e.target.value)}
+                      className="focus:outline-none [color-scheme:dark]"
+                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
+                      title="Hora do cliente"
+                    />
+                    <select
+                      value={novaEntregaMargem}
+                      onChange={(e) => setNovaEntregaMargem(e.target.value)}
+                      className="focus:outline-none"
+                      style={{ padding: '4px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
+                      title="Margem"
+                    >
+                      <option value="0">0h</option>
+                      <option value="2">-2h</option>
+                      <option value="4">-4h</option>
+                      <option value="6">-6h</option>
+                      <option value="8">-8h</option>
+                    </select>
+                    <select
+                      value={novaEntregaTag}
+                      onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
+                      className="focus:outline-none"
+                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
+                    >
+                      <option value="">Tag</option>
+                      {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                        ([value, config]) => (
+                          <option key={value} value={value}>{config.label}</option>
+                        )
+                      )}
+                    </select>
+                    <button
+                      type="submit"
+                      disabled={!novaEntregaNome.trim() || addingEntrega}
+                      style={{
+                        padding: '4px 12px', background: '#4A90D9', color: 'white',
+                        fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
+                        opacity: (!novaEntregaNome.trim() || addingEntrega) ? 0.4 : 1,
+                        cursor: (!novaEntregaNome.trim() || addingEntrega) ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {addingEntrega ? '...' : '+'}
+                    </button>
+                  </>
+                )}
               </form>
             </div>
 
             {/* TAGS */}
-            <div className="relative">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Tags</span>
-              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            <div className="relative" style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Tags
+              </div>
+              <div className="flex flex-wrap" style={{ gap: '6px' }}>
                 {job.tags.map((tag) => TAGS[tag] && (
                   <span
                     key={tag}
-                    className="px-2.5 py-1 rounded-lg text-xs font-medium"
                     style={{
-                      backgroundColor: `${TAGS[tag].color}20`,
+                      fontSize: '11px', fontWeight: 600, padding: '4px 12px',
+                      borderRadius: '9999px', cursor: 'pointer',
+                      background: `${TAGS[tag].color}26`,
                       color: TAGS[tag].color,
                     }}
                   >
@@ -860,7 +993,14 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                 ))}
                 <button
                   onClick={() => setShowTagPicker((v) => !v)}
-                  className="px-2 py-1 rounded-lg text-xs text-text-muted hover:text-accent hover:bg-bg-card border border-dashed border-border transition-colors"
+                  style={{
+                    fontSize: '11px', fontWeight: 600, padding: '4px 12px',
+                    borderRadius: '9999px', cursor: 'pointer',
+                    background: 'transparent', color: '#5A5A5E',
+                    border: '1px dashed #2A2A2C',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#4A90D9' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#5A5A5E' }}
                   title="Editar tags"
                 >
                   + Tag
@@ -869,7 +1009,7 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
               {showTagPicker && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-50 bg-bg-primary border border-border rounded-lg shadow-elevated p-2 w-52 max-h-72 overflow-y-auto">
+                  <div className="absolute left-0 top-full mt-1 z-50 overflow-y-auto" style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '8px', width: '208px', maxHeight: '288px', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
                     {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
                       ([value, config]) => {
                         const active = job.tags.includes(value)
@@ -877,19 +1017,15 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                           <button
                             key={value}
                             onClick={() => toggleJobTag(value)}
-                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
-                              active ? 'bg-bg-card' : 'hover:bg-bg-card'
-                            }`}
+                            className="flex items-center gap-2 w-full text-left transition-colors"
+                            style={{ padding: '6px 8px', borderRadius: '6px', fontSize: '12px', background: active ? '#1A1A1D' : 'transparent' }}
                           >
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: config.color }}
-                            />
-                            <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: config.color }} />
+                            <span style={{ color: active ? '#E5E5E7' : '#8E8E93', fontWeight: active ? 500 : 400 }}>
                               {config.label}
                             </span>
                             {active && (
-                              <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                              <span className="ml-auto" style={{ color: '#4A90D9', fontSize: '10px' }}>&#10003;</span>
                             )}
                           </button>
                         )
@@ -901,8 +1037,10 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
             </div>
 
             {/* FILES */}
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted mb-3 block">Arquivos</span>
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Arquivos
+              </div>
               <FileUpload
                 jobId={job.id}
                 arquivos={arquivos}
@@ -911,100 +1049,90 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
               />
             </div>
 
-            {/* ── DELETE (absolute bottom, very subtle) ── */}
-            {onDelete && (
-              <div className="pt-8 mt-8 border-t border-border/30">
-                {!showDeleteConfirm ? (
-                  <button
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="text-xs text-red-400/40 hover:text-red-400/70 transition-colors"
-                  >
-                    Excluir job
-                  </button>
-                ) : (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg space-y-2">
-                    <p className="text-sm text-red-400">
-                      Digite seu nome para confirmar a exclusao:
-                    </p>
-                    <input
-                      type="text"
-                      value={deleteConfirmName}
-                      onChange={(e) => setDeleteConfirmName(e.target.value)}
-                      placeholder="Seu nome..."
-                      autoFocus
-                      className="w-full px-3 py-2 bg-bg-card border border-red-500/30 rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-red-400"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (deleteConfirmName.trim().length >= 2) {
-                            onDelete(job.id)
-                          }
-                        }}
-                        disabled={deleteConfirmName.trim().length < 2}
-                        className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Confirmar exclusao
-                      </button>
-                      <button
-                        onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
-                        className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* ── RIGHT COLUMN (sidebar) ── */}
-          <div className="w-[320px] flex-shrink-0 p-5 space-y-5 overflow-y-auto">
+          <div className="flex-shrink-0 overflow-y-auto" style={{ width: '300px', padding: '24px 20px' }}>
 
             {/* STATUS */}
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Status</span>
-              <div className="mt-2">
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Status
+              </div>
+              <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '14px' }}>
                 {job.em_producao_por === currentUserId ? (
                   <button
                     onClick={() => onEmProducaoToggle?.(job.id)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                    className="flex items-center gap-2.5 w-full transition-all"
+                    style={{
+                      padding: '12px 14px', borderRadius: '8px', cursor: 'pointer',
+                      background: 'rgba(20,174,92,0.08)', border: '1px solid rgba(20,174,92,0.2)',
+                    }}
                   >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0 animate-pulse"
+                      style={{ background: '#14AE5C' }}
+                    />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#14AE5C' }}>
+                      Produzindo
                     </span>
-                    Em Producao
+                  </button>
+                ) : onEmProducaoToggle ? (
+                  <button
+                    onClick={() => onEmProducaoToggle(job.id)}
+                    className="flex items-center gap-2 w-full"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    {currentColuna?.cor && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
+                    )}
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
                   </button>
                 ) : (
                   <div className="flex items-center gap-2">
                     {currentColuna?.cor && (
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
                     )}
-                    <span className="text-sm text-text-secondary">{currentColuna?.nome ?? 'Sem coluna'}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
                   </div>
                 )}
                 {job.em_producao_por && job.em_producao_por !== currentUserId && (
-                  <p className="text-[10px] text-text-muted mt-1">Outro membro esta produzindo</p>
+                  <p style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '6px' }}>Outro membro esta produzindo</p>
                 )}
               </div>
             </div>
 
             {/* GOOGLE DRIVE */}
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Google Drive</span>
-              <div className="mt-2">
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                Google Drive
+              </div>
+              <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '14px' }}>
                 {!editingDriveUrl ? (
                   <button
-                    onClick={() => { setDriveUrlInput(job.drive_folder_url ?? ''); setEditingDriveUrl(true) }}
-                    className={`flex items-center gap-2 text-sm transition-colors ${
-                      job.drive_folder_url
-                        ? 'text-accent hover:text-accent-hover'
-                        : 'text-text-muted hover:text-text-secondary'
-                    }`}
+                    onClick={() => {
+                      if (job.drive_folder_url) {
+                        window.open(job.drive_folder_url, '_blank')
+                      } else {
+                        setDriveUrlInput(job.drive_folder_url ?? '')
+                        setEditingDriveUrl(true)
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setDriveUrlInput(job.drive_folder_url ?? '')
+                      setEditingDriveUrl(true)
+                    }}
+                    className="flex items-center gap-2.5 w-full transition-all"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: '13px',
+                      color: job.drive_folder_url ? '#8E8E93' : '#5A5A5E',
+                    }}
+                    onMouseEnter={(e) => { if (job.drive_folder_url) e.currentTarget.style.color = '#4A90D9' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = job.drive_folder_url ? '#8E8E93' : '#5A5A5E' }}
                   >
-                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                     </svg>
                     {job.drive_folder_url ? 'Abrir pasta do job' : '+ Adicionar link'}
@@ -1017,7 +1145,11 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                       onChange={(e) => setDriveUrlInput(e.target.value)}
                       placeholder="Cole a URL da pasta do Drive..."
                       autoFocus
-                      className="w-full px-2 py-1.5 bg-bg-card border border-border rounded-lg text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                      className="w-full focus:outline-none"
+                      style={{
+                        padding: '8px 12px', background: '#1A1A1D', border: '1px solid #2A2A2C',
+                        borderRadius: '8px', fontSize: '12px', color: '#E5E5E7',
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSaveDriveUrl()
                         if (e.key === 'Escape') setEditingDriveUrl(false)
@@ -1027,7 +1159,11 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                       <button
                         onClick={handleSaveDriveUrl}
                         disabled={savingDriveUrl}
-                        className="px-3 py-1 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50"
+                        style={{
+                          padding: '6px 14px', background: '#4A90D9', color: 'white',
+                          fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
+                          opacity: savingDriveUrl ? 0.5 : 1, cursor: savingDriveUrl ? 'not-allowed' : 'pointer',
+                        }}
                       >
                         {savingDriveUrl ? '...' : 'Salvar'}
                       </button>
@@ -1036,14 +1172,14 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                           href={job.drive_folder_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-accent hover:text-accent-hover text-xs"
+                          style={{ fontSize: '12px', color: '#4A90D9' }}
                         >
                           Abrir
                         </a>
                       )}
                       <button
                         onClick={() => setEditingDriveUrl(false)}
-                        className="text-text-muted hover:text-text-primary text-xs ml-auto"
+                        style={{ fontSize: '12px', color: '#5A5A5E', marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}
                       >
                         Cancelar
                       </button>
@@ -1054,19 +1190,26 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
             </div>
 
             {/* COMENTARIOS */}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Comentarios</span>
-                <span className="text-[10px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">
+            <div style={{ marginBottom: '28px' }}>
+              <div className="flex items-center gap-2" style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
+                <span>Comentarios</span>
+                <span
+                  className="flex items-center justify-center"
+                  style={{
+                    fontSize: '10px', fontWeight: 700, color: 'white',
+                    background: '#4A90D9', borderRadius: '9999px',
+                    minWidth: '20px', height: '18px', padding: '0 6px',
+                  }}
+                >
                   {comentarios.length}
                 </span>
               </div>
 
-              <div className="mt-3 space-y-3">
+              <div>
                 {loadingComments ? (
-                  <p className="text-xs text-text-muted italic">Carregando...</p>
+                  <p style={{ fontSize: '12px', color: '#5A5A5E', fontStyle: 'italic' }}>Carregando...</p>
                 ) : comentarios.length === 0 ? (
-                  <p className="text-xs text-text-muted italic">
+                  <p style={{ fontSize: '12px', color: '#5A5A5E', fontStyle: 'italic' }}>
                     Nenhum comentario ainda.
                   </p>
                 ) : null}
@@ -1074,109 +1217,143 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                 {comentarios.map((c) => (
                   <div
                     key={c.id}
-                    className={`p-3 rounded-lg border transition-colors ${
-                      c.resolvido
-                        ? 'bg-bg-primary border-border opacity-60'
-                        : 'bg-bg-card border-border'
-                    }`}
+                    style={{ padding: '12px 0', borderBottom: '1px solid #2A2A2C' }}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
+                      {/* Avatar circle */}
+                      <div
+                        className="flex items-center justify-center flex-shrink-0"
+                        style={{
+                          width: '24px', height: '24px', borderRadius: '9999px',
+                          background: '#252528', color: '#8E8E93',
+                          fontWeight: 700, fontSize: '10px',
+                        }}
+                      >
+                        {(c.autor?.nome ?? 'M').charAt(0).toUpperCase()}
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#E5E5E7' }}>
+                        {c.autor?.nome ?? 'Membro'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#5A5A5E', marginLeft: 'auto', flexShrink: 0 }}>
+                        {relativeTime(c.created_at)}
+                      </span>
+                      {/* Resolve checkbox */}
                       <button
                         onClick={() => toggleResolvido(c.id)}
-                        className={`mt-0.5 w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                          c.resolvido
-                            ? 'bg-accent border-accent text-bg-primary'
-                            : 'border-border hover:border-accent'
-                        }`}
+                        className="flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{
+                          width: '16px', height: '16px', borderRadius: '4px',
+                          border: c.resolvido ? '2px solid #14AE5C' : '2px solid #3A3A3C',
+                          background: c.resolvido ? '#14AE5C' : 'transparent',
+                          color: c.resolvido ? 'white' : 'transparent',
+                          cursor: 'pointer',
+                        }}
+                        title={c.resolvido ? 'Marcar como nao resolvido' : 'Marcar como resolvido'}
                       >
                         {c.resolvido && (
-                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
                         )}
                       </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {/* Avatar initials */}
-                          <span className="w-5 h-5 rounded-md bg-accent/15 text-accent text-[9px] font-bold flex items-center justify-center flex-shrink-0">
-                            {(c.autor?.nome ?? 'M').charAt(0).toUpperCase()}
-                          </span>
-                          <span className="text-xs font-semibold text-text-primary">
-                            {c.autor?.nome ?? 'Membro'}
-                          </span>
-                          <span className="text-[10px] text-text-muted ml-auto flex-shrink-0">
-                            {relativeTime(c.created_at)}
-                          </span>
-                        </div>
-                        <p className={`text-xs mt-1 leading-relaxed ${c.resolvido ? 'line-through text-text-muted' : 'text-text-secondary'}`}>
-                          {renderMentionText(c.texto)}
-                        </p>
-                      </div>
                     </div>
+                    <p
+                      style={{
+                        fontSize: '13px', color: c.resolvido ? '#5A5A5E' : '#8E8E93',
+                        lineHeight: 1.5, marginTop: '6px', marginLeft: '32px',
+                        textDecoration: c.resolvido ? 'line-through' : 'none',
+                      }}
+                    >
+                      {renderMentionText(c.texto)}
+                    </p>
                   </div>
                 ))}
               </div>
 
               {/* New comment form with @mention */}
-              <form onSubmit={handleAddComment} className="relative mt-3">
-                <div className="relative bg-bg-card border border-border rounded-lg focus-within:border-accent">
-                  {/* Highlight overlay */}
-                  <div
-                    aria-hidden
-                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none overflow-hidden whitespace-pre z-[1]"
-                  >
-                    {novoComentario.split(/(@\S+)/g).map((part, i) =>
-                      part.startsWith('@') ? (
-                        <span key={i} className="text-accent font-medium">{part}</span>
-                      ) : (
-                        <span key={i} className="text-text-primary">{part}</span>
-                      )
+              <form onSubmit={handleAddComment} className="relative" style={{ marginTop: '12px' }}>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    {/* Highlight overlay */}
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 pointer-events-none overflow-hidden whitespace-pre z-[1]"
+                      style={{ padding: '10px 14px', fontSize: '13px' }}
+                    >
+                      {novoComentario.split(/(@\S+)/g).map((part, i) =>
+                        part.startsWith('@') ? (
+                          <span key={i} style={{ color: '#4A90D9', fontWeight: 500 }}>{part}</span>
+                        ) : (
+                          <span key={i} style={{ color: '#E5E5E7' }}>{part}</span>
+                        )
+                      )}
+                    </div>
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={novoComentario}
+                      onChange={(e) => handleCommentInput(e.target.value)}
+                      onKeyDown={handleCommentKeyDown}
+                      placeholder="Escreva um comentario... @mencione"
+                      className="w-full focus:outline-none"
+                      style={{
+                        padding: '10px 14px', background: '#111113', border: '1px solid #2A2A2C',
+                        borderRadius: '8px', fontSize: '13px', color: 'transparent',
+                        caretColor: '#E5E5E7', position: 'relative',
+                      }}
+                    />
+
+                    {/* @mention dropdown */}
+                    {showMentionDropdown && filteredMembros.length > 0 && (
+                      <div
+                        className="absolute bottom-full left-0 mb-1 w-full overflow-hidden z-50"
+                        style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                      >
+                        {filteredMembros.map((m, i) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => handleMentionSelect(m)}
+                            className="w-full text-left flex items-center gap-2 transition-colors"
+                            style={{
+                              padding: '8px 12px', fontSize: '12px',
+                              background: i === mentionIndex ? 'rgba(74,144,217,0.15)' : 'transparent',
+                              color: i === mentionIndex ? '#4A90D9' : '#E5E5E7',
+                            }}
+                          >
+                            <span
+                              className="flex items-center justify-center"
+                              style={{
+                                width: '20px', height: '20px', borderRadius: '6px',
+                                background: 'rgba(74,144,217,0.2)', color: '#4A90D9',
+                                fontSize: '9px', fontWeight: 700,
+                              }}
+                            >
+                              {m.nome.charAt(0).toUpperCase()}
+                            </span>
+                            <div className="min-w-0">
+                              <span style={{ fontWeight: 500 }}>{m.nome}</span>
+                              <span style={{ fontSize: '10px', color: '#5A5A5E', marginLeft: '6px' }}>{m.email}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={novoComentario}
-                    onChange={(e) => handleCommentInput(e.target.value)}
-                    onKeyDown={handleCommentKeyDown}
-                    placeholder="Comentar... (@ para mencionar)"
-                    className="w-full px-3 py-2 bg-transparent text-xs placeholder-text-muted focus:outline-none relative"
-                    style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
-                  />
-
-                  {/* @mention dropdown */}
-                  {showMentionDropdown && filteredMembros.length > 0 && (
-                    <div className="absolute bottom-full left-0 mb-1 w-full bg-bg-primary border border-border rounded-lg shadow-elevated overflow-hidden z-50">
-                      {filteredMembros.map((m, i) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => handleMentionSelect(m)}
-                          className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors ${
-                            i === mentionIndex
-                              ? 'bg-accent/15 text-accent'
-                              : 'text-text-primary hover:bg-bg-card'
-                          }`}
-                        >
-                          <span className="w-5 h-5 rounded-md bg-accent/20 text-accent text-[9px] font-bold flex items-center justify-center">
-                            {m.nome.charAt(0).toUpperCase()}
-                          </span>
-                          <div className="min-w-0">
-                            <span className="font-medium">{m.nome}</span>
-                            <span className="text-[10px] text-text-muted ml-1.5">{m.email}</span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    type="submit"
+                    disabled={!novoComentario.trim() || sendingComment}
+                    style={{
+                      padding: '10px 16px', background: '#4A90D9', color: 'white',
+                      border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                      cursor: (!novoComentario.trim() || sendingComment) ? 'not-allowed' : 'pointer',
+                      opacity: (!novoComentario.trim() || sendingComment) ? 0.4 : 1,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {sendingComment ? '...' : 'Enviar'}
+                  </button>
                 </div>
-                <button
-                  type="submit"
-                  disabled={!novoComentario.trim() || sendingComment}
-                  className="mt-2 w-full px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {sendingComment ? '...' : 'Enviar'}
-                </button>
               </form>
             </div>
           </div>
@@ -1192,7 +1369,7 @@ function renderMentionText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('@')) {
       return (
-        <span key={i} className="text-accent font-medium">
+        <span key={i} style={{ color: '#4A90D9', fontWeight: 500 }}>
           {part}
         </span>
       )
