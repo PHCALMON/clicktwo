@@ -142,39 +142,24 @@ export function PerfilClient({ profile }: PerfilClientProps) {
           </div>
         </div>
 
-        {/* Cargo */}
-        <div className="bg-bg-card border border-border rounded-xl p-6 space-y-4">
-          <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-[2px]">Cargo</h2>
-          <div className="grid grid-cols-4 gap-2">
-            {(Object.entries(CARGOS) as [Cargo, { label: string; color: string; icon: string }][]).map(([key, cfg]) => {
-              const isActive = profile.cargo === key
-              return (
-                <button
-                  key={key}
-                  onClick={async () => {
-                    const newCargo = isActive ? null : key
-                    await fetch(`/api/membros/${profile.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ cargo: newCargo }),
-                    })
-                    window.location.reload()
-                  }}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all text-center ${
-                    isActive
-                      ? 'border-accent bg-accent/10'
-                      : 'border-border bg-[#1C1C1E] hover:border-border-hover hover:bg-bg-hover'
-                  }`}
-                >
-                  <span className="text-lg">{cfg.icon}</span>
-                  <span className={`text-xs font-semibold ${isActive ? 'text-accent' : 'text-text-secondary'}`}>
-                    {cfg.label}
-                  </span>
-                </button>
-              )
-            })}
+        {/* Cargo (read-only) */}
+        {profile.cargo && CARGOS[profile.cargo as Cargo] && (
+          <div className="bg-bg-card border border-border rounded-xl p-6 space-y-4">
+            <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-[2px]">Cargo</h2>
+            <div
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2"
+              style={{
+                borderColor: CARGOS[profile.cargo as Cargo].color,
+                backgroundColor: `${CARGOS[profile.cargo as Cargo].color}12`,
+              }}
+            >
+              <span className="text-lg">{CARGOS[profile.cargo as Cargo].icon}</span>
+              <span className="text-sm font-semibold" style={{ color: CARGOS[profile.cargo as Cargo].color }}>
+                {CARGOS[profile.cargo as Cargo].label}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Info */}
         <div className="bg-bg-card border border-border rounded-xl p-6 space-y-3">
