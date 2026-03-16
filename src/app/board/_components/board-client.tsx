@@ -140,17 +140,35 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const isDemoMode = typeof window !== 'undefined' &&
     process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
 
+  const [vetoError, setVetoError] = useState<string | null>(null)
+  const jobsBeforeDrag = useRef<Job[]>([])
+
   const handleBatchReorder = useCallback(async (items: { id: string; coluna_id: string; posicao: number }[]) => {
     if (isDemoMode) return
-    await fetch('/api/jobs/reorder', {
+    const res = await fetch('/api/jobs/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobs: items }),
     })
+    if (!res.ok) {
+      // Veto or error — revert to state before drag
+      setJobs(jobsBeforeDrag.current)
+      const data = await res.json().catch(() => ({ details: ['Erro desconhecido'] }))
+      const msg = data.details?.[0] || data.error || 'Movimento bloqueado'
+      setVetoError(msg)
+      setTimeout(() => setVetoError(null), 5000)
+    }
+    jobsBeforeDrag.current = []
   }, [isDemoMode])
 
   const handleJobsReorder = useCallback((updatedJobs: Job[]) => {
-    setJobs(updatedJobs)
+    setJobs((prev) => {
+      // Save state before first reorder in a drag sequence
+      if (jobsBeforeDrag.current.length === 0) {
+        jobsBeforeDrag.current = prev
+      }
+      return updatedJobs
+    })
   }, [])
 
   const handleNewJob = useCallback(async (jobData: Partial<Job>) => {
@@ -171,6 +189,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         drive_folder_url: null,
         freela_nome: null,
         freela_funcao: null,
+        assignee_id: null,
         created_at: new Date().toISOString(),
         created_by: 'demo',
         cliente: clientesList.find((c) => c.id === jobData.cliente_id),
@@ -415,6 +434,13 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
             return created as Cliente
           }}
         />
+      )}
+
+      {/* Veto toast */}
+      {vetoError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-red-500/90 text-white text-sm font-medium rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {vetoError}
+        </div>
       )}
 
       {selectedJob && (

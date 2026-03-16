@@ -35,6 +35,7 @@ export interface Job {
   margem_horas: number | null
   prioridade: Prioridade
   tags: TagJob[]
+  assignee_id: string | null
   em_producao_por: string | null
   drive_folder_url: string | null
   freela_nome: string | null

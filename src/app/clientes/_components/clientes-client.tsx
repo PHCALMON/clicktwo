@@ -101,10 +101,8 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
           setError(data.error || 'Erro ao editar cliente')
           return
         }
-        const updated = await res.json()
-        setClientes((prev) =>
-          prev.map((c) => (c.id === editingId ? updated : c)).sort((a, b) => a.nome.localeCompare(b.nome))
-        )
+        // Realtime will update via onClienteChange
+        await res.json()
       } else {
         const res = await fetch('/api/clientes', {
           method: 'POST',
@@ -116,13 +114,12 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
           setError(data.error || 'Erro ao criar cliente')
           return
         }
-        const created = await res.json()
-        setClientes((prev) => [...prev, created].sort((a, b) => a.nome.localeCompare(b.nome)))
+        // Realtime will add the new client via onClienteChange
+        await res.json()
       }
       setShowForm(false)
       setNome('')
       setEditingId(null)
-      router.refresh()
     } catch {
       setError('Erro de conexão')
     } finally {
