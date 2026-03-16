@@ -31,6 +31,10 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
   const [loadingComments, setLoadingComments] = useState(true)
   const [sendingComment, setSendingComment] = useState(false)
 
+
+  // Entregas error state
+  const [entregaError, setEntregaError] = useState<string | null>(null)
+
   // Entregas state
   const [entregas, setEntregas] = useState<Entrega[]>([])
   const [novaEntregaNome, setNovaEntregaNome] = useState('')
@@ -194,8 +198,10 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
 
   async function handleAddEntrega(e: React.FormEvent) {
     e.preventDefault()
+    console.log('[entregas] handleAddEntrega called', { jobId: job.id, nome: novaEntregaNome })
     if (!novaEntregaNome.trim() || addingEntrega) return
     setAddingEntrega(true)
+    setEntregaError(null)
     try {
       const res = await fetch(`/api/jobs/${job.id}/entregas`, {
         method: 'POST',
@@ -208,6 +214,7 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
           margem_horas: parseInt(novaEntregaMargem) || 4,
         }),
       })
+      console.log('[entregas] Response status:', res.status)
       if (res.ok) {
         const created = await res.json()
         setEntregas((prev) => [...prev, created])
@@ -217,10 +224,13 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
         setNovaEntregaHora('')
         setNovaEntregaMargem('4')
       } else {
-        console.error('[entregas] Erro ao criar:', res.status, await res.text())
+        const errText = await res.text()
+        console.error('[entregas] Erro ao criar:', res.status, errText)
+        setEntregaError(`Erro ${res.status}: ${errText || 'Falha ao criar entrega'}`)
       }
     } catch (err) {
       console.error('[entregas] Erro de rede:', err)
+      setEntregaError(`Erro de rede: ${err instanceof Error ? err.message : 'Falha na conexao'}`)
     } finally {
       setAddingEntrega(false)
     }
@@ -286,6 +296,18 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ entrega_id: entregaId, ...fields }),
+    })
+  }
+
+  async function toggleEntregaProduzindo(entregaId: string) {
+    const entrega = entregas.find((e) => e.id === entregaId)
+    if (!entrega) return
+    const newValue = entrega.produzindo_por === currentUserId ? null : currentUserId
+    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, produzindo_por: newValue } : e))
+    await fetch(`/api/jobs/${job.id}/entregas`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entrega_id: entregaId, produzindo_por: newValue }),
     })
   }
 
@@ -426,11 +448,22 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
     return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
   }
 
+  // Issue 3: Save dirty freela fields before closing
+  async function handleClose() {
+    if (freelaNome.trim() !== (job.freela_nome ?? '')) {
+      await handleSaveFreela('freela_nome', freelaNome)
+    }
+    if (freelaFuncao.trim() !== (job.freela_funcao ?? '')) {
+      await handleSaveFreela('freela_funcao', freelaFuncao)
+    }
+    onClose()
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="w-full max-w-[880px] mx-4 flex flex-col max-h-[90vh]"
@@ -501,7 +534,7 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
             )}
             {/* Close X button */}
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="flex items-center justify-center transition-all"
               style={{
                 width: '36px', height: '36px', borderRadius: '6px',
@@ -739,6 +772,7 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                 Freela
               </div>
               {(job.freela_nome || freelaNome) ? (
+                <>
                 <div
                   className="flex items-center"
                   style={{ gap: '12px', padding: '14px', background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px' }}
@@ -777,20 +811,21 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                     />
                   </div>
                 </div>
+                </>
               ) : (
-                <input
-                  type="text"
-                  value={freelaNome}
-                  onChange={(e) => setFreelaNome(e.target.value)}
-                  onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                  placeholder="+ Adicionar freela"
-                  className="w-full focus:outline-none"
+                <button
+                  onClick={() => { setFreelaNome(''); setFreelaFuncao('') }}
+                  className="w-full text-left focus:outline-none transition-colors"
                   style={{
                     padding: '14px', fontSize: '13px', color: '#5A5A5E',
                     background: 'transparent', border: '1px dashed #2A2A2C', borderRadius: '8px',
+                    cursor: 'pointer',
                   }}
-                />
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E' }}
+                >
+                  + Adicionar freela
+                </button>
               )}
             </div>
 
@@ -834,14 +869,46 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                         </button>
                         {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div
-                            style={{
-                              fontSize: '13px', fontWeight: 500,
-                              color: entrega.concluida ? '#5A5A5E' : '#E5E5E7',
-                              textDecoration: entrega.concluida ? 'line-through' : 'none',
-                            }}
-                          >
-                            {entrega.nome}
+                          <div className="flex items-center gap-2">
+                            <div
+                              style={{
+                                fontSize: '13px', fontWeight: 500, flex: 1,
+                                color: entrega.concluida ? '#5A5A5E' : '#E5E5E7',
+                                textDecoration: entrega.concluida ? 'line-through' : 'none',
+                              }}
+                            >
+                              {entrega.nome}
+                            </div>
+                            {/* Produzindo esta entrega */}
+                            <button
+                              onClick={() => toggleEntregaProduzindo(entrega.id)}
+                              title={entrega.produzindo_por === currentUserId ? 'Parar de produzir' : 'Estou nesta entrega'}
+                              className="flex items-center gap-1 flex-shrink-0 transition-all"
+                              style={{
+                                padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600,
+                                background: entrega.produzindo_por === currentUserId ? 'rgba(20,174,92,0.12)' : 'transparent',
+                                border: entrega.produzindo_por === currentUserId ? '1px solid rgba(20,174,92,0.3)' : '1px dashed #2A2A2C',
+                                color: entrega.produzindo_por === currentUserId ? '#14AE5C' : '#5A5A5E',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {entrega.produzindo_por === currentUserId ? (
+                                <>
+                                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#14AE5C' }} />
+                                  Eu
+                                </>
+                              ) : entrega.produzindo_por ? (
+                                <>
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF8C00' }} />
+                                  {(() => {
+                                    const m = membros.find((mb) => mb.id === entrega.produzindo_por)
+                                    return m?.nome?.split(' ')[0] ?? '...'
+                                  })()}
+                                </>
+                              ) : (
+                                'Pegar'
+                              )}
+                            </button>
                           </div>
                           {/* Meta row: tag + deadline */}
                           <div className="flex items-center gap-2" style={{ marginTop: '4px' }}>
@@ -1019,6 +1086,11 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
                   </>
                 )}
               </form>
+              {entregaError && (
+                <div style={{ padding: '6px 10px', marginTop: '4px', fontSize: '12px', color: '#F24822', background: 'rgba(242,72,34,0.08)', border: '1px solid rgba(242,72,34,0.2)', borderRadius: '6px' }}>
+                  {entregaError}
+                </div>
+              )}
             </div>
 
             {/* TAGS */}

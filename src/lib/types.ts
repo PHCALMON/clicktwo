@@ -121,6 +121,7 @@ export interface Entrega {
   data_entrega: string | null
   hora_entrega_cliente: string | null
   margem_horas: number | null
+  produzindo_por: string | null
   created_at: string
 }
 
