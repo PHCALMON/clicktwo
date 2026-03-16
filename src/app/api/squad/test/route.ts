@@ -197,8 +197,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: agent === 'sentinel' || agent === 'relay' || agent === 'mirror' || agent === 'archivist'
-          ? 'claude-haiku-4-5-20251001'
-          : 'claude-sonnet-4-5-20250514',
+          ? 'claude-3-5-haiku-20241022'
+          : 'claude-3-5-sonnet-20241022',
         max_tokens: 500,
         temperature: 0.4,
         system: systemPrompt,
