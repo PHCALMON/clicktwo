@@ -27,16 +27,6 @@ const navItems = [
     ),
   },
   {
-    href: '/producao',
-    label: 'Producao',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        <polygon points="23 7 16 12 23 17 23 7" />
-        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-      </svg>
-    ),
-  },
-  {
     href: '/clientes',
     label: 'Clientes',
     icon: (
@@ -77,7 +67,21 @@ export function MiniSidebar() {
         )
       })}
 
-      <div className="mt-auto">
+      <div className="mt-auto flex flex-col items-center gap-1">
+        <a
+          href="/perfil"
+          title="Meu perfil"
+          className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+            pathname === '/perfil' || pathname?.startsWith('/perfil/')
+              ? 'bg-accent/15 text-accent'
+              : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+          }`}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </a>
         <LogoutButton />
       </div>
     </aside>
