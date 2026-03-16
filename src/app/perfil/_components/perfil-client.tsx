@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import type { Profile, PersonalidadeResult } from '@/lib/types'
+import type { Profile, PersonalidadeResult, Cargo } from '@/lib/types'
 import { ARQUETIPOS, CATEGORIA_NOMES } from '@/lib/arquetipos'
+import { CARGOS } from '@/lib/constants'
 
 interface PerfilClientProps {
   profile: Profile
@@ -141,18 +142,46 @@ export function PerfilClient({ profile }: PerfilClientProps) {
           </div>
         </div>
 
+        {/* Cargo */}
+        <div className="bg-bg-card border border-border rounded-xl p-6 space-y-4">
+          <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-[2px]">Cargo</h2>
+          <div className="grid grid-cols-4 gap-2">
+            {(Object.entries(CARGOS) as [Cargo, { label: string; color: string; icon: string }][]).map(([key, cfg]) => {
+              const isActive = profile.cargo === key
+              return (
+                <button
+                  key={key}
+                  onClick={async () => {
+                    const newCargo = isActive ? null : key
+                    await fetch(`/api/membros/${profile.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ cargo: newCargo }),
+                    })
+                    window.location.reload()
+                  }}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition-all text-center ${
+                    isActive
+                      ? 'border-accent bg-accent/10'
+                      : 'border-border bg-[#1C1C1E] hover:border-border-hover hover:bg-bg-hover'
+                  }`}
+                >
+                  <span className="text-lg">{cfg.icon}</span>
+                  <span className={`text-xs font-semibold ${isActive ? 'text-accent' : 'text-text-secondary'}`}>
+                    {cfg.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Info */}
         <div className="bg-bg-card border border-border rounded-xl p-6 space-y-3">
           <h2 className="text-[11px] font-semibold text-text-muted uppercase tracking-[2px]">Informacoes</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#1C1C1E] border border-border rounded-lg p-3">
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px] mb-1">Email</p>
-              <p className="text-sm text-text-primary truncate">{profile.email}</p>
-            </div>
-            <div className="bg-[#1C1C1E] border border-border rounded-lg p-3">
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px] mb-1">Cargo</p>
-              <p className="text-sm text-text-primary">{profile.cargo || 'Nao definido'}</p>
-            </div>
+          <div className="bg-[#1C1C1E] border border-border rounded-lg p-3">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-[1.5px] mb-1">Email</p>
+            <p className="text-sm text-text-primary truncate">{profile.email}</p>
           </div>
         </div>
 

@@ -46,4 +46,5 @@ export const CARGOS: Record<Cargo, { label: string; color: string; icon: string 
   colorista: { label: 'Colorista', color: '#FFCD29', icon: '\u{1F3A8}' },
   sound: { label: 'Sound', color: '#00C2CB', icon: '\u{1F3B5}' },
   produtor: { label: 'Produtor', color: '#14AE5C', icon: '\u{1F4CB}' },
+  filmmaker: { label: 'Filmmaker', color: '#5B5FC7', icon: '\u{1F3A5}' },
 }

@@ -50,7 +50,7 @@ export interface Job {
   entregas_concluidas?: number
 }
 
-export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor'
+export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor' | 'filmmaker'
 
 export type CategoriaPersonalidade = 'analistas' | 'diplomatas' | 'sentinelas' | 'exploradores'
 
