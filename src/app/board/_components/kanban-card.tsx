@@ -1,31 +1,37 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Job, TagJob } from '@/lib/types'
+import type { EntregaWithJob, TagJob } from '@/lib/types'
 import { TAGS } from '@/lib/constants'
-import { calcJobPrioridade } from '@/lib/priority'
+import { calcPrioridade } from '@/lib/priority'
 import { TagBadge } from './tag-badge'
 import { ClientLogo } from '@/components/ui/client-logo'
 
 interface KanbanCardProps {
-  job: Job
-  onTagsChange?: (jobId: string, tags: TagJob[]) => void
+  entrega: EntregaWithJob
+  onTagsChange?: (entregaId: string, tags: TagJob[]) => void
 }
 
-export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
+export function KanbanCard({ entrega, onTagsChange }: KanbanCardProps) {
   const [showPicker, setShowPicker] = useState(false)
 
+  const job = entrega.job
+  const cliente = job?.cliente
+
   const prio = useMemo(
-    () => calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas),
-    [job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas],
+    () => calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas),
+    [entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas],
   )
+
+  // Entrega has a single tag, represent as array for picker
+  const currentTags: TagJob[] = entrega.tag ? [entrega.tag] : []
 
   function toggleTag(tag: TagJob) {
     if (!onTagsChange) return
-    const next = job.tags.includes(tag)
-      ? job.tags.filter((t) => t !== tag)
-      : [...job.tags, tag]
-    onTagsChange(job.id, next)
+    const next = currentTags.includes(tag)
+      ? currentTags.filter((t) => t !== tag)
+      : [...currentTags, tag]
+    onTagsChange(entrega.id, next)
   }
 
   return (
@@ -38,11 +44,11 @@ export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
 
       <div className="pl-3 pr-3 pt-2.5 pb-2.5">
         {/* Client row */}
-        {job.cliente && (
+        {cliente && (
           <div className="flex items-center gap-2 mb-1.5">
-            <ClientLogo nome={job.cliente.nome} dominio={job.cliente.dominio} cor={job.cliente.cor} size="sm" />
-            <span className="text-[11px] font-semibold text-text-secondary truncate">{job.cliente.nome}</span>
-            {job.drive_folder_url && (
+            <ClientLogo nome={cliente.nome} dominio={cliente.dominio} cor={cliente.cor} size="sm" />
+            <span className="text-[11px] text-text-muted truncate">{cliente.nome}</span>
+            {job?.drive_folder_url && (
               <a
                 href={job.drive_folder_url}
                 target="_blank"
@@ -60,13 +66,20 @@ export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
           </div>
         )}
 
-        {/* Title */}
-        <p className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-accent transition-colors leading-tight">
-          {job.campanha}
+        {/* Campaign name (bold) */}
+        {job?.campanha && (
+          <p className="text-sm font-bold text-text-primary leading-tight group-hover:text-accent transition-colors">
+            {job.campanha}
+          </p>
+        )}
+
+        {/* Entrega name (same weight, secondary color) */}
+        <p className="text-sm font-bold text-text-secondary mb-1.5 leading-tight">
+          {entrega.nome}
         </p>
 
-        {/* Em Producao badge */}
-        {job.em_producao_por && (
+        {/* Produzindo badge */}
+        {entrega.produzindo_por && (
           <div className="flex items-center gap-1.5 mb-1.5 px-1.5 py-0.5 bg-emerald-500/10 rounded text-[11px]">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -76,17 +89,7 @@ export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
           </div>
         )}
 
-        {/* Freela badge */}
-        {job.freela_nome && (
-          <div className="flex items-center gap-1.5 mb-1.5 px-1.5 py-0.5 bg-fig-orange/10 rounded text-[11px]">
-            <span className="text-fig-orange font-medium">{job.freela_nome}</span>
-            {job.freela_funcao && (
-              <span className="text-text-muted">&middot; {job.freela_funcao}</span>
-            )}
-          </div>
-        )}
-
-        {/* Priority + countdown + entregas */}
+        {/* Priority + countdown */}
         <div
           className="flex items-center justify-between mb-1.5"
           onClick={(e) => e.stopPropagation()}
@@ -107,21 +110,19 @@ export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
               </span>
             )}
           </div>
-          {prio.entregasTotal > 0 && (
-            <span className="text-text-muted text-[10px]">
-              {prio.entregasConcluidas}/{prio.entregasTotal}
-            </span>
+          {entrega.aprovado_interno && (
+            <span className="text-emerald-400 text-[10px] font-medium">Aprovado</span>
           )}
         </div>
 
-        {/* Tags */}
+        {/* Tag */}
         <div
           className="relative"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-1 flex-wrap">
-            {job.tags.map((tag) => (
+            {currentTags.map((tag) => (
               <TagBadge key={tag} tag={tag} />
             ))}
             {onTagsChange && (
@@ -141,7 +142,7 @@ export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
               <div className="absolute left-0 bottom-full mb-1 z-50 bg-bg-elevated border border-border rounded-md shadow-dropdown p-1.5 w-44 max-h-56 overflow-y-auto">
                 {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
                   ([value, config]) => {
-                    const active = job.tags.includes(value)
+                    const active = currentTags.includes(value)
                     return (
                       <button
                         key={value}

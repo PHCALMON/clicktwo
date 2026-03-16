@@ -1,16 +1,16 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { Coluna, Job, TagJob } from '@/lib/types'
+import type { Coluna, EntregaWithJob, TagJob } from '@/lib/types'
 import { SortableCard } from './sortable-card'
 
 interface KanbanColumnProps {
   coluna: Coluna
-  jobs: Job[]
-  onJobClick?: (job: Job) => void
-  onTagsChange?: (jobId: string, tags: TagJob[]) => void
+  entregas: EntregaWithJob[]
+  onEntregaClick?: (entrega: EntregaWithJob) => void
+  onTagsChange?: (entregaId: string, tags: TagJob[]) => void
 }
 
-export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanColumnProps) {
+export function KanbanColumn({ coluna, entregas, onEntregaClick, onTagsChange }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id })
 
   return (
@@ -27,12 +27,12 @@ export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanC
             {coluna.nome}
           </h3>
           <span className="text-xs text-text-muted bg-bg-elevated px-1.5 py-0.5 rounded">
-            {jobs.length}
+            {entregas.length}
           </span>
         </div>
       </div>
 
-      <SortableContext items={jobs.map((j) => j.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={entregas.map((e) => e.id)} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
           className={`space-y-2 min-h-[200px] p-1 rounded-lg transition-colors ${
@@ -42,8 +42,8 @@ export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanC
             borderTop: coluna.cor ? `2px solid ${coluna.cor}` : '2px solid #4A90D9',
           }}
         >
-          {jobs.map((job) => (
-            <SortableCard key={job.id} job={job} onClick={() => onJobClick?.(job)} onTagsChange={onTagsChange} />
+          {entregas.map((entrega) => (
+            <SortableCard key={entrega.id} entrega={entrega} onClick={() => onEntregaClick?.(entrega)} onTagsChange={onTagsChange} />
           ))}
         </div>
       </SortableContext>

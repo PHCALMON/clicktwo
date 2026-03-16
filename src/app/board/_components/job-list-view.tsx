@@ -1,20 +1,22 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { Coluna, Job } from '@/lib/types'
+import type { Coluna, EntregaWithJob } from '@/lib/types'
 import { TAGS } from '@/lib/constants'
-import { calcJobPrioridade } from '@/lib/priority'
+import { calcPrioridade } from '@/lib/priority'
 
 interface JobListViewProps {
   colunas: Coluna[]
-  jobs: Job[]
-  onJobClick: (job: Job) => void
+  entregas: EntregaWithJob[]
+  onEntregaClick: (entrega: EntregaWithJob) => void
 }
 
-export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
-  const colunasMap = useMemo(() => {
+export function JobListView({ colunas, entregas, onEntregaClick }: JobListViewProps) {
+  const colunasSlugMap = useMemo(() => {
     const map: Record<string, Coluna> = {}
-    for (const c of colunas) map[c.id] = c
+    for (const c of colunas) {
+      if (c.slug) map[c.slug] = c
+    }
     return map
   }, [colunas])
 
@@ -24,28 +26,28 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-bg-elevated border-b border-border">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Produzindo</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Fase</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Cliente</th>
-              <th className="text-center px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Job</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Campanha</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Prioridade</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Entrega</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Tags</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Prioridade</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Data</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Tag</th>
             </tr>
           </thead>
           <tbody>
-            {jobs.length === 0 && (
+            {entregas.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center py-8 text-text-muted">
-                  Nenhum job encontrado.
+                  Nenhuma entrega encontrada.
                 </td>
               </tr>
             )}
-            {jobs.map((job) => {
-              const coluna = colunasMap[job.coluna_id]
-              const prioConfig = calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas)
-              const formattedDate = job.data_entrega
-                ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
+            {entregas.map((entrega) => {
+              const coluna = colunasSlugMap[entrega.status_slug]
+              const prioConfig = calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas)
+              const formattedDate = entrega.data_entrega
+                ? new Date(entrega.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
@@ -54,8 +56,8 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
 
               return (
                 <tr
-                  key={job.id}
-                  onClick={() => onJobClick(job)}
+                  key={entrega.id}
+                  onClick={() => onEntregaClick(entrega)}
                   className="border-b border-border last:border-b-0 hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                 >
                   <td className="px-4 py-2.5">
@@ -63,37 +65,24 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
                       className="inline-block px-2 py-0.5 rounded text-xs font-bold text-white"
                       style={{ backgroundColor: coluna?.cor || '#52525B' }}
                     >
-                      {coluna?.nome || '—'}
+                      {coluna?.nome || entrega.status_slug}
                     </span>
                   </td>
 
                   <td className="px-4 py-2.5">
                     <span className="text-sm font-medium text-text-primary">
-                      {job.cliente?.nome || '—'}
+                      {entrega.job?.cliente?.nome || '\u2014'}
                     </span>
                   </td>
 
-                  <td className="px-4 py-2.5 text-center">
-                    {job.drive_folder_url ? (
-                      <a
-                        href={job.drive_folder_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center text-accent hover:text-accent-hover transition-colors"
-                        title="Abrir pasta no Drive"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                        </svg>
-                      </a>
-                    ) : (
-                      <span className="text-text-muted text-xs">—</span>
-                    )}
+                  <td className="px-4 py-2.5">
+                    <span className="text-sm text-text-secondary">
+                      {entrega.job?.campanha || '\u2014'}
+                    </span>
                   </td>
 
                   <td className="px-4 py-2.5">
-                    <span className="text-sm text-text-primary">{job.campanha}</span>
+                    <span className="text-sm text-text-primary">{entrega.nome}</span>
                   </td>
 
                   <td className="px-4 py-2.5">
@@ -110,17 +99,14 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
                   </td>
 
                   <td className="px-4 py-2.5">
-                    <div className="flex gap-1 flex-wrap">
-                      {job.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
-                          style={{ backgroundColor: TAGS[tag]?.color || '#52525B' }}
-                        >
-                          {(TAGS[tag]?.label || tag).toUpperCase()}
-                        </span>
-                      ))}
-                    </div>
+                    {entrega.tag && (
+                      <span
+                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                        style={{ backgroundColor: TAGS[entrega.tag]?.color || '#52525B' }}
+                      >
+                        {(TAGS[entrega.tag]?.label || entrega.tag).toUpperCase()}
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
@@ -129,7 +115,7 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
         </table>
       </div>
 
-      <p className="text-xs text-text-muted mt-3">{jobs.length} job(s)</p>
+      <p className="text-xs text-text-muted mt-3">{entregas.length} entrega(s)</p>
     </div>
   )
 }

@@ -9,8 +9,11 @@ export type TagJob = 'falta_material' | 'arte' | 'edicao' | 'motion' | 'ai_gen_s
 export interface Coluna {
   id: string
   nome: string
+  slug: string | null
   cor: string | null
   posicao: number
+  posicao_fluxo: number | null
+  protegida: boolean
   created_at: string
 }
 
@@ -40,6 +43,11 @@ export interface Job {
   drive_folder_url: string | null
   freela_nome: string | null
   freela_funcao: string | null
+  briefing_texto: string | null
+  link_entrega_cliente: string | null
+  aprovado_interno: boolean
+  checagem_final: boolean
+  aprovado_cliente: boolean
   created_at: string
   created_by: string
   // joined
@@ -118,10 +126,28 @@ export interface Entrega {
   tag: TagJob | null
   concluida: boolean
   posicao: number
+  status_slug: string
   data_entrega: string | null
   hora_entrega_cliente: string | null
   margem_horas: number | null
   produzindo_por: string | null
+  aprovado_interno: boolean
+  aprovado_interno_por: string | null
+  created_at: string
+  // joined
+  job?: Job
+}
+
+export interface EntregaWithJob extends Entrega {
+  job: Job & { cliente?: Cliente }
+}
+
+export interface JobFreela {
+  id: string
+  job_id: string
+  nome: string
+  funcao: string | null
+  posicao: number
   created_at: string
 }
 

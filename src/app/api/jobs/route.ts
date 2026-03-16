@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { cliente_id, campanha, tipo_job, coluna_id, data_entrega, prioridade, tags } = body
+  const { cliente_id, campanha, tipo_job, coluna_id, data_entrega, hora_entrega_cliente, margem_horas, prioridade, tags } = body
 
   if (!cliente_id || !campanha || !tipo_job || !coluna_id) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -36,6 +36,8 @@ export async function POST(request: Request) {
       coluna_id,
       posicao: nextPosicao,
       data_entrega: data_entrega || null,
+      hora_entrega_cliente: hora_entrega_cliente || null,
+      margem_horas: margem_horas !== undefined ? margem_horas : 4,
       prioridade: prioridade || 'normal',
       tags: tags || [],
       created_by: user.id,

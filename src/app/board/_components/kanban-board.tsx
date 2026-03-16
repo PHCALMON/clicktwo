@@ -14,22 +14,22 @@ import {
   type DragOverEvent,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import type { Coluna, Job, TagJob } from '@/lib/types'
+import type { Coluna, EntregaWithJob, TagJob } from '@/lib/types'
 import { KanbanColumn } from './kanban-column'
 import { KanbanCard } from './kanban-card'
 
 interface KanbanBoardProps {
   colunas: Coluna[]
-  jobs: Job[]
-  onJobsReorder?: (updatedJobs: Job[]) => void
-  onBatchReorder?: (items: { id: string; coluna_id: string; posicao: number }[]) => void
-  onJobClick?: (job: Job) => void
-  onTagsChange?: (jobId: string, tags: TagJob[]) => void
+  entregas: EntregaWithJob[]
+  onEntregasReorder?: (updatedEntregas: EntregaWithJob[]) => void
+  onBatchReorder?: (items: { id: string; status_slug: string; posicao: number }[]) => void
+  onEntregaClick?: (entrega: EntregaWithJob) => void
+  onTagsChange?: (entregaId: string, tags: TagJob[]) => void
   onAddColumn?: (nome: string, cor: string | null) => void
 }
 
-export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJobClick, onTagsChange, onAddColumn }: KanbanBoardProps) {
-  const [activeJob, setActiveJob] = useState<Job | null>(null)
+export function KanbanBoard({ colunas, entregas, onEntregasReorder, onBatchReorder, onEntregaClick, onTagsChange, onAddColumn }: KanbanBoardProps) {
+  const [activeEntrega, setActiveEntrega] = useState<EntregaWithJob | null>(null)
   const [showNewColumn, setShowNewColumn] = useState(false)
   const [newColName, setNewColName] = useState('')
   const [newColColor, setNewColColor] = useState('')
@@ -41,52 +41,56 @@ export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJo
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  const getJobsForColumn = useCallback(
-    (colunaId: string): Job[] =>
-      jobs
-        .filter((job) => job.coluna_id === colunaId)
-        .sort((a, b) => a.posicao - b.posicao),
-    [jobs]
+  const getEntregasForColumn = useCallback(
+    (slug: string | null): EntregaWithJob[] => {
+      if (!slug) return []
+      return entregas
+        .filter((e) => e.status_slug === slug)
+        .sort((a, b) => a.posicao - b.posicao)
+    },
+    [entregas]
   )
 
-  function reorder(updatedJobs: Job[]) {
-    onJobsReorder?.(updatedJobs)
+  function reorder(updatedEntregas: EntregaWithJob[]) {
+    onEntregasReorder?.(updatedEntregas)
   }
 
   function handleDragStart(event: DragStartEvent) {
-    const job = jobs.find((j) => j.id === event.active.id)
-    if (job) setActiveJob(job)
+    const entrega = entregas.find((e) => e.id === event.active.id)
+    if (entrega) setActiveEntrega(entrega)
   }
 
   function handleDragOver(event: DragOverEvent) {
     const { active, over } = event
     if (!over) return
 
-    const activeJobId = active.id as string
+    const activeId = active.id as string
     const overId = over.id as string
 
-    const activeJobData = jobs.find((j) => j.id === activeJobId)
-    if (!activeJobData) return
+    const activeEntregaData = entregas.find((e) => e.id === activeId)
+    if (!activeEntregaData) return
 
-    const isOverColumn = colunas.some((c) => c.id === overId)
-    if (isOverColumn && activeJobData.coluna_id !== overId) {
+    // Check if dropped over a column (by column ID)
+    const overColuna = colunas.find((c) => c.id === overId)
+    if (overColuna && overColuna.slug && activeEntregaData.status_slug !== overColuna.slug) {
       reorder(
-        jobs.map((j) =>
-          j.id === activeJobId
-            ? { ...j, coluna_id: overId, posicao: getJobsForColumn(overId).length }
-            : j
+        entregas.map((e) =>
+          e.id === activeId
+            ? { ...e, status_slug: overColuna.slug!, posicao: getEntregasForColumn(overColuna.slug).length }
+            : e
         )
       )
       return
     }
 
-    const overJob = jobs.find((j) => j.id === overId)
-    if (overJob && activeJobData.coluna_id !== overJob.coluna_id) {
+    // Check if dropped over another entrega
+    const overEntrega = entregas.find((e) => e.id === overId)
+    if (overEntrega && activeEntregaData.status_slug !== overEntrega.status_slug) {
       reorder(
-        jobs.map((j) =>
-          j.id === activeJobId
-            ? { ...j, coluna_id: overJob.coluna_id, posicao: overJob.posicao }
-            : j
+        entregas.map((e) =>
+          e.id === activeId
+            ? { ...e, status_slug: overEntrega.status_slug, posicao: overEntrega.posicao }
+            : e
         )
       )
     }
@@ -94,59 +98,59 @@ export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJo
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
-    setActiveJob(null)
+    setActiveEntrega(null)
 
     if (!over) return
 
-    const activeJobId = active.id as string
+    const activeId = active.id as string
     const overId = over.id as string
 
-    const movedJob = jobs.find((j) => j.id === activeJobId)
-    if (!movedJob) return
+    const movedEntrega = entregas.find((e) => e.id === activeId)
+    if (!movedEntrega) return
 
-    const sourceColunaId = movedJob.coluna_id
-    let targetColunaId = movedJob.coluna_id
-    let targetPosicao = movedJob.posicao
+    const sourceSlug = movedEntrega.status_slug
+    let targetSlug = movedEntrega.status_slug
+    let targetPosicao = movedEntrega.posicao
 
-    const isOverColumn = colunas.some((c) => c.id === overId)
-    if (isOverColumn) {
-      targetColunaId = overId
-      targetPosicao = getJobsForColumn(overId).filter((j) => j.id !== activeJobId).length
+    const overColuna = colunas.find((c) => c.id === overId)
+    if (overColuna && overColuna.slug) {
+      targetSlug = overColuna.slug
+      targetPosicao = getEntregasForColumn(overColuna.slug).filter((e) => e.id !== activeId).length
     } else {
-      const overJob = jobs.find((j) => j.id === overId)
-      if (overJob) {
-        targetColunaId = overJob.coluna_id
-        targetPosicao = overJob.posicao
+      const overEntrega = entregas.find((e) => e.id === overId)
+      if (overEntrega) {
+        targetSlug = overEntrega.status_slug
+        targetPosicao = overEntrega.posicao
       }
     }
 
-    const updated = jobs.map((j) =>
-      j.id === activeJobId
-        ? { ...j, coluna_id: targetColunaId, posicao: targetPosicao }
-        : j
+    const updated = entregas.map((e) =>
+      e.id === activeId
+        ? { ...e, status_slug: targetSlug, posicao: targetPosicao }
+        : e
     )
 
-    const columnJobs = updated
-      .filter((j) => j.coluna_id === targetColunaId)
+    const columnEntregas = updated
+      .filter((e) => e.status_slug === targetSlug)
       .sort((a, b) => {
-        if (a.id === activeJobId) return targetPosicao - b.posicao
-        if (b.id === activeJobId) return a.posicao - targetPosicao
+        if (a.id === activeId) return targetPosicao - b.posicao
+        if (b.id === activeId) return a.posicao - targetPosicao
         return a.posicao - b.posicao
       })
 
-    const reindexed = updated.map((j) => {
-      const idx = columnJobs.findIndex((cj) => cj.id === j.id)
-      if (idx !== -1) return { ...j, posicao: idx }
-      return j
+    const reindexed = updated.map((e) => {
+      const idx = columnEntregas.findIndex((ce) => ce.id === e.id)
+      if (idx !== -1) return { ...e, posicao: idx }
+      return e
     })
 
     reorder(reindexed)
 
     // Build batch reorder payload: all cards in affected columns
-    const affectedColunaIds = new Set([sourceColunaId, targetColunaId])
+    const affectedSlugs = new Set([sourceSlug, targetSlug])
     const batchItems = reindexed
-      .filter((j) => affectedColunaIds.has(j.coluna_id))
-      .map((j) => ({ id: j.id, coluna_id: j.coluna_id, posicao: j.posicao }))
+      .filter((e) => affectedSlugs.has(e.status_slug))
+      .map((e) => ({ id: e.id, status_slug: e.status_slug, posicao: e.posicao }))
 
     onBatchReorder?.(batchItems)
   }
@@ -164,8 +168,8 @@ export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJo
           <KanbanColumn
             key={coluna.id}
             coluna={coluna}
-            jobs={getJobsForColumn(coluna.id)}
-            onJobClick={onJobClick}
+            entregas={getEntregasForColumn(coluna.slug)}
+            onEntregaClick={onEntregaClick}
             onTagsChange={onTagsChange}
           />
         ))}
@@ -235,9 +239,9 @@ export function KanbanBoard({ colunas, jobs, onJobsReorder, onBatchReorder, onJo
       </div>
 
       <DragOverlay>
-        {activeJob && (
+        {activeEntrega && (
           <div className="rotate-3 opacity-90">
-            <KanbanCard job={activeJob} />
+            <KanbanCard entrega={activeEntrega} />
           </div>
         )}
       </DragOverlay>

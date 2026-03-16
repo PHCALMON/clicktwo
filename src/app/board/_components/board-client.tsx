@@ -1,31 +1,35 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import type { Coluna, Job, Cliente, TagJob, Profile, StatusMembro } from '@/lib/types'
+import type { Coluna, Job, Cliente, TagJob, Profile, StatusMembro, EntregaWithJob, Entrega } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { ClientLogo } from '@/components/ui/client-logo'
 import { KanbanBoard } from './kanban-board'
 import { JobListView } from './job-list-view'
 import { NewJobModal } from './new-job-modal'
 import { JobDetailModal } from './job-detail-modal'
+import { EntregaDetailModal } from './entrega-detail-modal'
 import { TeamStatusBar } from './team-status-bar'
 
 interface BoardClientProps {
   colunas: Coluna[]
+  entregas: EntregaWithJob[]
   jobs: Job[]
   clientes: Cliente[]
   membros: Profile[]
   currentUserId: string
 }
 
-export function BoardClient({ colunas: initialColunas, jobs: initialJobs, clientes: initialClientes, membros: initialMembros, currentUserId }: BoardClientProps) {
+export function BoardClient({ colunas: initialColunas, entregas: initialEntregas, jobs: initialJobs, clientes: initialClientes, membros: initialMembros, currentUserId }: BoardClientProps) {
   const [colunas, setColunas] = useState<Coluna[]>(initialColunas)
+  const [entregas, setEntregas] = useState<EntregaWithJob[]>(initialEntregas)
   const [jobs, setJobs] = useState<Job[]>(initialJobs)
   const [clientesList, setClientesList] = useState<Cliente[]>(initialClientes)
   const [membrosList, setMembrosList] = useState<Profile[]>(initialMembros)
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [showNewJob, setShowNewJob] = useState(false)
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [selectedEntrega, setSelectedEntrega] = useState<EntregaWithJob | null>(null)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null)
 
   // Drag-to-scroll for kanban
@@ -39,7 +43,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     if (!el) return
 
     function onMouseDown(e: MouseEvent) {
-      // Only grab on background clicks (not on cards, buttons, inputs)
       const target = e.target as HTMLElement
       const isInteractive = target.closest('button, a, input, select, textarea, [draggable="true"], [data-card]')
       if (isInteractive) return
@@ -89,17 +92,16 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     return () => window.removeEventListener('open-job', handleOpenJob)
   }, [jobs])
 
-  const filteredJobs = useMemo(() => {
-    if (!selectedClienteId) return jobs
-    return jobs.filter((j) => j.cliente_id === selectedClienteId)
-  }, [jobs, selectedClienteId])
+  // Filter entregas by selected client
+  const filteredEntregas = useMemo(() => {
+    if (!selectedClienteId) return entregas
+    return entregas.filter((e) => e.job?.cliente_id === selectedClienteId)
+  }, [entregas, selectedClienteId])
 
   // Realtime: auto-sync when Supabase is connected
   const realtimeCallbacks = useMemo(() => ({
     onJobChange: (payload: { eventType: string; new: Job; old: Job }) => {
-      console.log('[Realtime] Job event:', payload.eventType, payload.new?.id, 'drive_folder_url:', payload.new?.drive_folder_url)
       if (payload.eventType === 'INSERT') {
-        // Realtime doesn't include joins — attach cliente from local list
         const jobWithCliente = {
           ...payload.new,
           cliente: undefined as Cliente | undefined,
@@ -109,14 +111,43 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           return prev
         })
         setJobs((prev) => {
-          // Deduplicate: skip if already in state
           if (prev.some((j) => j.id === payload.new.id)) return prev
           return [...prev, jobWithCliente]
         })
       } else if (payload.eventType === 'UPDATE') {
         setJobs((prev) => prev.map((j) => (j.id === payload.new.id ? { ...j, ...payload.new, cliente: j.cliente, entregas: j.entregas } : j)))
+        // Also update entregas that reference this job
+        setEntregas((prev) => prev.map((e) => {
+          if (e.job_id !== payload.new.id) return e
+          return { ...e, job: { ...e.job, ...payload.new, cliente: e.job?.cliente } as EntregaWithJob['job'] }
+        }))
       } else if (payload.eventType === 'DELETE') {
         setJobs((prev) => prev.filter((j) => j.id !== payload.old.id))
+        setEntregas((prev) => prev.filter((e) => e.job_id !== payload.old.id))
+      }
+    },
+    onEntregaChange: (payload: { eventType: string; new: Entrega; old: Entrega }) => {
+      if (payload.eventType === 'INSERT') {
+        // Realtime doesn't include joins — attach job from local list
+        const entregaWithJob: EntregaWithJob = {
+          ...payload.new,
+          job: undefined as unknown as EntregaWithJob['job'],
+        }
+        setJobs((prev) => {
+          const parentJob = prev.find((j) => j.id === payload.new.job_id)
+          if (parentJob) {
+            entregaWithJob.job = { ...parentJob, cliente: parentJob.cliente } as EntregaWithJob['job']
+          }
+          return prev
+        })
+        setEntregas((prev) => {
+          if (prev.some((e) => e.id === payload.new.id)) return prev
+          return [...prev, entregaWithJob]
+        })
+      } else if (payload.eventType === 'UPDATE') {
+        setEntregas((prev) => prev.map((e) => (e.id === payload.new.id ? { ...e, ...payload.new, job: e.job } : e)))
+      } else if (payload.eventType === 'DELETE') {
+        setEntregas((prev) => prev.filter((e) => e.id !== payload.old.id))
       }
     },
     onClienteChange: (payload: { eventType: string; new: Cliente; old: Cliente }) => {
@@ -141,33 +172,32 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
 
   const [vetoError, setVetoError] = useState<string | null>(null)
-  const jobsBeforeDrag = useRef<Job[]>([])
+  const entregasBeforeDrag = useRef<EntregaWithJob[]>([])
 
-  const handleBatchReorder = useCallback(async (items: { id: string; coluna_id: string; posicao: number }[]) => {
+  const handleBatchReorder = useCallback(async (items: { id: string; status_slug: string; posicao: number }[]) => {
     if (isDemoMode) return
-    const res = await fetch('/api/jobs/reorder', {
+    const res = await fetch('/api/entregas/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobs: items }),
+      body: JSON.stringify({ entregas: items }),
     })
     if (!res.ok) {
       // Veto or error — revert to state before drag
-      setJobs(jobsBeforeDrag.current)
+      setEntregas(entregasBeforeDrag.current)
       const data = await res.json().catch(() => ({ details: ['Erro desconhecido'] }))
       const msg = data.details?.[0] || data.error || 'Movimento bloqueado'
       setVetoError(msg)
       setTimeout(() => setVetoError(null), 5000)
     }
-    jobsBeforeDrag.current = []
+    entregasBeforeDrag.current = []
   }, [isDemoMode])
 
-  const handleJobsReorder = useCallback((updatedJobs: Job[]) => {
-    setJobs((prev) => {
-      // Save state before first reorder in a drag sequence
-      if (jobsBeforeDrag.current.length === 0) {
-        jobsBeforeDrag.current = prev
+  const handleEntregasReorder = useCallback((updatedEntregas: EntregaWithJob[]) => {
+    setEntregas((prev) => {
+      if (entregasBeforeDrag.current.length === 0) {
+        entregasBeforeDrag.current = prev
       }
-      return updatedJobs
+      return updatedEntregas
     })
   }, [])
 
@@ -190,6 +220,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         freela_nome: null,
         freela_funcao: null,
         assignee_id: null,
+        briefing_texto: null,
+        link_entrega_cliente: null,
+        aprovado_interno: false,
+        checagem_final: false,
+        aprovado_cliente: false,
         created_at: new Date().toISOString(),
         created_by: 'demo',
         cliente: clientesList.find((c) => c.id === jobData.cliente_id),
@@ -202,12 +237,12 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         body: JSON.stringify(jobData),
       })
       if (res.ok) {
-        // Add immediately from API response (Realtime INSERT will be deduplicated)
         const created = await res.json()
         setJobs((prev) => {
           if (prev.some((j) => j.id === created.id)) return prev
           return [...prev, created]
         })
+        // Entregas created with the job will arrive via realtime or we re-fetch
       } else {
         console.error('Failed to create job:', await res.text())
       }
@@ -215,30 +250,46 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setShowNewJob(false)
   }, [isDemoMode, colunas, jobs, clientesList])
 
-  const handleJobClick = useCallback((job: Job) => {
-    setSelectedJob(job)
+  const handleEntregaClick = useCallback((entrega: EntregaWithJob) => {
+    setSelectedEntrega(entrega)
   }, [])
 
   const handleJobUpdate = useCallback((updatedJob: Job) => {
     setJobs((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)))
+    // Update entregas that reference this job
+    setEntregas((prev) => prev.map((e) => {
+      if (e.job_id !== updatedJob.id) return e
+      return { ...e, job: { ...updatedJob, cliente: updatedJob.cliente } as EntregaWithJob['job'] }
+    }))
     setSelectedJob(updatedJob)
   }, [])
 
-  const handleTagsChange = useCallback(async (jobId: string, tags: TagJob[]) => {
-    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, tags } : j)))
+  const handleEntregaUpdate = useCallback((updatedEntrega: EntregaWithJob) => {
+    setEntregas((prev) => prev.map((e) => (e.id === updatedEntrega.id ? updatedEntrega : e)))
+    setSelectedEntrega(updatedEntrega)
+  }, [])
+
+  const handleTagsChange = useCallback(async (entregaId: string, tags: TagJob[]) => {
+    // Tags are on the entrega level (tag field), but the board card shows job-level tags
+    // For now, update the single entrega tag
+    const entrega = entregas.find((e) => e.id === entregaId)
+    if (!entrega) return
+    const newTag = tags.length > 0 ? tags[tags.length - 1] : null
+    setEntregas((prev) => prev.map((e) => (e.id === entregaId ? { ...e, tag: newTag } : e)))
     if (!isDemoMode) {
-      await fetch(`/api/jobs/${jobId}`, {
+      await fetch(`/api/entregas/${entregaId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      })
+        body: JSON.stringify({ tag: newTag }),
+      }).catch(() => {})
     }
-  }, [isDemoMode])
+  }, [isDemoMode, entregas])
 
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
     if (isDemoMode) {
       setJobs((prev) => prev.filter((j) => j.id !== jobId))
+      setEntregas((prev) => prev.filter((e) => e.job_id !== jobId))
     } else {
       const res = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -249,7 +300,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   }, [isDemoMode])
 
   const handleStatusChange = useCallback(async (status: StatusMembro, texto?: string) => {
-    // Optimistic update
     setMembrosList((prev) => prev.map((m) => (m.id === currentUserId ? { ...m, status, status_texto: texto ?? m.status_texto } : m)))
     if (!isDemoMode) {
       await fetch('/api/membros/status', {
@@ -267,7 +317,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     const isCurrentlyActive = job.em_producao_por === currentUserId
     const newValue = isCurrentlyActive ? null : currentUserId
 
-    // Optimistic: clear from all jobs of this user, then set the new one
     setJobs((prev) => prev.map((j) => {
       if (j.em_producao_por === currentUserId) return { ...j, em_producao_por: null }
       if (j.id === jobId && !isCurrentlyActive) return { ...j, em_producao_por: currentUserId }
@@ -288,20 +337,27 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     const newColuna: Coluna = {
       id: `col-${Date.now()}`,
       nome: nome.toUpperCase(),
+      slug: nome.toLowerCase().replace(/\s+/g, '_'),
       cor,
       posicao: maxPos + 1,
+      posicao_fluxo: null,
+      protegida: false,
       created_at: new Date().toISOString(),
     }
     setColunas((prev) => [...prev, newColuna])
   }, [colunas])
 
-  const jobCountByCliente = useMemo(() => {
+  // Count entregas per client for sidebar
+  const entregaCountByCliente = useMemo(() => {
     const map = new Map<string, number>()
-    for (const job of jobs) {
-      map.set(job.cliente_id, (map.get(job.cliente_id) ?? 0) + 1)
+    for (const entrega of entregas) {
+      const clienteId = entrega.job?.cliente_id
+      if (clienteId) {
+        map.set(clienteId, (map.get(clienteId) ?? 0) + 1)
+      }
     }
     return map
-  }, [jobs])
+  }, [entregas])
 
   return (
     <>
@@ -351,7 +407,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Client sidebar — redesigned with icons */}
+        {/* Client sidebar */}
         <aside className="w-52 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3">
           <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest px-2 mb-2">Clientes</h3>
 
@@ -371,7 +427,7 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
           {clientesList.map((cliente) => {
             const isActive = selectedClienteId === cliente.id
-            const count = jobCountByCliente.get(cliente.id) ?? 0
+            const count = entregaCountByCliente.get(cliente.id) ?? 0
             return (
               <button
                 key={cliente.id}
@@ -397,10 +453,10 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           <div ref={scrollRef} className="flex-1 overflow-auto">
             <KanbanBoard
               colunas={colunas}
-              jobs={filteredJobs}
-              onJobsReorder={handleJobsReorder}
+              entregas={filteredEntregas}
+              onEntregasReorder={handleEntregasReorder}
               onBatchReorder={handleBatchReorder}
-              onJobClick={handleJobClick}
+              onEntregaClick={handleEntregaClick}
               onTagsChange={handleTagsChange}
               onAddColumn={handleAddColumn}
             />
@@ -409,8 +465,8 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           <div className="flex-1 overflow-auto">
             <JobListView
               colunas={colunas}
-              jobs={filteredJobs}
-              onJobClick={handleJobClick}
+              entregas={filteredEntregas}
+              onEntregaClick={handleEntregaClick}
             />
           </div>
         )}
@@ -452,6 +508,16 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           onUpdate={handleJobUpdate}
           onDelete={handleDeleteJob}
           onEmProducaoToggle={handleEmProducaoToggle}
+        />
+      )}
+
+      {selectedEntrega && (
+        <EntregaDetailModal
+          entrega={selectedEntrega}
+          currentUserId={currentUserId}
+          membros={membrosList}
+          onClose={() => setSelectedEntrega(null)}
+          onUpdate={handleEntregaUpdate}
         />
       )}
     </>
