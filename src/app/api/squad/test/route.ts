@@ -196,9 +196,7 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: agent === 'sentinel' || agent === 'relay' || agent === 'mirror' || agent === 'archivist'
-          ? 'claude-3-5-haiku-20241022'
-          : 'claude-3-5-sonnet-20241022',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 500,
         temperature: 0.4,
         system: systemPrompt,
