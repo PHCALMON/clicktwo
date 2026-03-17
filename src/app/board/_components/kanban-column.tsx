@@ -43,7 +43,7 @@ export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanC
           }}
         >
           {jobs.map((job) => (
-            <SortableCard key={job.id} job={job} onClick={() => onJobClick?.(job)} onTagsChange={onTagsChange} />
+            <SortableCard key={job.id} job={job} colunaNome={coluna.nome} onClick={() => onJobClick?.(job)} onTagsChange={onTagsChange} />
           ))}
         </div>
       </SortableContext>

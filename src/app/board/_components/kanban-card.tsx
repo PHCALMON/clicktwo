@@ -6,18 +6,28 @@ import { TAGS } from '@/lib/constants'
 import { calcJobPrioridade } from '@/lib/priority'
 import { TagBadge } from './tag-badge'
 
+// Colunas onde o job ja foi entregue — sem badge de atrasado
+const COLUNAS_ENTREGUES = ['CLIENTE/AGÊNCIA', 'CLIENTE', 'ENTREGUE', 'ARQUIVO']
+
 interface KanbanCardProps {
   job: Job
+  colunaNome?: string
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
 }
 
-export function KanbanCard({ job, onTagsChange }: KanbanCardProps) {
+export function KanbanCard({ job, colunaNome, onTagsChange }: KanbanCardProps) {
   const [showPicker, setShowPicker] = useState(false)
 
-  const prio = useMemo(
+  const rawPrio = useMemo(
     () => calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas),
     [job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas],
   )
+
+  // Se job ta em coluna de entrega, neutraliza prioridade
+  const isEntregue = colunaNome ? COLUNAS_ENTREGUES.some((c) => colunaNome.toUpperCase().includes(c)) : false
+  const prio = isEntregue
+    ? { ...rawPrio, level: 'sem_urgencia' as const, label: 'Entregue', color: '#22C55E', countdown: null, pulse: false }
+    : rawPrio
 
   const formattedDate = job.data_entrega
     ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {

@@ -5,11 +5,12 @@ import { KanbanCard } from './kanban-card'
 
 interface SortableCardProps {
   job: Job
+  colunaNome?: string
   onClick?: () => void
   onTagsChange?: (jobId: string, tags: TagJob[]) => void
 }
 
-export function SortableCard({ job, onClick, onTagsChange }: SortableCardProps) {
+export function SortableCard({ job, colunaNome, onClick, onTagsChange }: SortableCardProps) {
   const {
     attributes,
     listeners,
@@ -33,7 +34,7 @@ export function SortableCard({ job, onClick, onTagsChange }: SortableCardProps) 
       {...listeners}
       onClick={onClick}
     >
-      <KanbanCard job={job} onTagsChange={onTagsChange} />
+      <KanbanCard job={job} colunaNome={colunaNome} onTagsChange={onTagsChange} />
     </div>
   )
 }
