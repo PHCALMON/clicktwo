@@ -13,7 +13,7 @@ export async function PUT(
   }
 
   const body = await request.json()
-  const allowedFields = ['drive_folder_url', 'coluna_id', 'posicao', 'prioridade', 'tags', 'freela_nome', 'freela_funcao', 'data_entrega', 'hora_entrega_cliente', 'margem_horas', 'campanha', 'em_producao_por', 'assignee_id', 'briefing_texto', 'link_entrega_cliente', 'aprovado_interno', 'checagem_final', 'aprovado_cliente']
+  const allowedFields = ['drive_folder_url', 'coluna_id', 'posicao', 'prioridade', 'tags', 'freela_nome', 'freela_funcao', 'data_entrega', 'hora_entrega_cliente', 'margem_horas', 'campanha', 'em_producao_por', 'assignee_id']
   const updateData: Record<string, unknown> = {}
   for (const key of allowedFields) {
     if (body[key] !== undefined) {

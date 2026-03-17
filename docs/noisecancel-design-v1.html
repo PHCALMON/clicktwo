@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoiseCancel — Design Concept v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Base — Science-backed dark mode */
+    --bg-base: #0A0A0C;
+    --bg-primary: #141416;
+    --bg-elevated: #1C1C1E;
+    --bg-hover: #2C2C2E;
+    --bg-glass: rgba(28, 28, 30, 0.7);
+
+    /* Text */
+    --text-primary: #E5E5E7;
+    --text-secondary: #8E8E93;
+    --text-muted: #5A5A5E;
+    --text-white: #FFFFFF;
+
+    /* Borders */
+    --border: #2A2A2C;
+    --border-hover: #3A3A3C;
+
+    /* Accent — Sapphire Blue (focus + trust) */
+    --accent: #4A90D9;
+    --accent-hover: #5A9FE8;
+    --accent-glow: rgba(74, 144, 217, 0.15);
+
+    /* Semantic — Science-backed */
+    --success: #34C759;
+    --warning: #E8A317;
+    --critical: #D94452;
+    --purple: #8B5CF6;
+    --teal: #2DD4BF;
+
+    /* Priority */
+    --prio-urgent: #D94452;
+    --prio-high: #E8A317;
+    --prio-medium: #4A90D9;
+    --prio-low: #8E8E93;
+
+    /* Typography */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+
+    /* Radii */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-base);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ================================ */
+  /* SECTION DIVIDER                  */
+  /* ================================ */
+  .section-divider {
+    text-align: center;
+    padding: 80px 40px 40px;
+    border-top: 1px solid var(--border);
+    margin-top: 80px;
+  }
+  .section-divider h2 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+
+  /* ================================ */
+  /* WELCOME SCREEN                   */
+  /* ================================ */
+  .welcome-screen {
+    min-height: 100vh;
+    display: flex;
+    background: var(--bg-base);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Ambient glow */
+  .welcome-screen::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(74, 144, 217, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .welcome-screen::after {
+    content: '';
+    position: absolute;
+    bottom: -200px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Sidebar */
+  .welcome-sidebar {
+    width: 72px;
+    background: var(--bg-primary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 0;
+    gap: 8px;
+    z-index: 1;
+  }
+  .nc-logo {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: white;
+    margin-bottom: 32px;
+  }
+  .nav-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-icon:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .nav-icon.active { background: var(--accent-glow); color: var(--accent); }
+  .nav-icon svg { width: 20px; height: 20px; }
+
+  /* Main content */
+  .welcome-main {
+    flex: 1;
+    padding: 48px 64px;
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+  }
+
+  /* Topbar */
+  .welcome-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 48px;
+  }
+  .welcome-date {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .welcome-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .welcome-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+  }
+  .welcome-username {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  /* Greeting */
+  .greeting {
+    margin-bottom: 48px;
+  }
+  .greeting-hello {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+  .greeting-name {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--text-white);
+    line-height: 1.1;
+    margin-bottom: 12px;
+  }
+  .greeting-name span {
+    font-weight: 300;
+    color: var(--text-secondary);
+  }
+  .greeting-motivation {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 500px;
+  }
+  .greeting-motivation em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  /* Status selector */
+  .status-section {
+    margin-bottom: 48px;
+  }
+  .status-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .status-buttons {
+    display: flex;
+    gap: 12px;
+  }
+  .status-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-body);
+  }
+  .status-btn:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+    transform: translateY(-1px);
+  }
+  .status-btn.highlight {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .status-btn .emoji { font-size: 18px; }
+  .status-btn .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: white;
+    margin-left: 4px;
+  }
+
+  /* Today's jobs */
+  .today-section {
+    margin-bottom: 48px;
+  }
+  .today-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .today-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-white);
+  }
+  .today-title span {
+    font-weight: 300;
+    color: var(--text-muted);
+  }
+  .today-count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  .job-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .job-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .job-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .job-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+  .job-card.prio-urgent::before { background: var(--prio-urgent); }
+  .job-card.prio-high::before { background: var(--prio-high); }
+  .job-card.prio-medium::before { background: var(--prio-medium); }
+  .job-card.prio-low::before { background: var(--prio-low); }
+
+  .job-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .client-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    color: white;
+  }
+  .job-countdown {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-body);
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+  }
+  .countdown-urgent { background: rgba(217,68,82,0.15); color: var(--prio-urgent); }
+  .countdown-high { background: rgba(232,163,23,0.15); color: var(--prio-high); }
+  .countdown-medium { background: rgba(74,144,217,0.15); color: var(--prio-medium); }
+
+  .job-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .job-card .client-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+
+  .job-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .job-tags {
+    display: flex;
+    gap: 6px;
+  }
+  .job-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .job-entregas {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .stat-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+  }
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-white);
+  }
+  .stat-value span {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text-muted);
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  /* Right panel */
+  .welcome-right {
+    width: 320px;
+    border-left: 1px solid var(--border);
+    padding: 48px 28px;
+    z-index: 1;
+  }
+  .right-section {
+    margin-bottom: 36px;
+  }
+  .right-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+
+  /* Team list */
+  .team-member {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .team-member:last-child { border-bottom: none; }
+  .team-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text-secondary);
+    position: relative;
+  }
+  .team-status-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--bg-primary);
+  }
+  .team-info { flex: 1; }
+  .team-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .team-task {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Calendar mini */
+  .calendar-mini {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    text-align: center;
+  }
+  .cal-day-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 4px 0;
+  }
+  .cal-day {
+    font-size: 12px;
+    padding: 6px 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+  }
+  .cal-day.today {
+    background: var(--accent);
+    color: white;
+    font-weight: 700;
+  }
+  .cal-day.has-job {
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .cal-day.urgent {
+    background: rgba(217,68,82,0.15);
+    color: var(--prio-urgent);
+    font-weight: 600;
+  }
+
+  /* ================================ */
+  /* COLOR PALETTE SHOWCASE           */
+  /* ================================ */
+  .palette-showcase {
+    padding: 64px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .palette-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text-white);
+    margin-bottom: 8px;
+  }
+  .palette-title span { font-weight: 300; color: var(--text-muted); }
+  .palette-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+  }
+
+  .color-group {
+    margin-bottom: 32px;
+  }
+  .color-group-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+  .color-swatches {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .swatch-color {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+  .swatch-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+  .swatch-hex {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--text-muted);
+    font-family: monospace;
+  }
+
+  /* ================================ */
+  /* TYPOGRAPHY SHOWCASE              */
+  /* ================================ */
+  .type-showcase {
+    padding: 64px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .type-sample {
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .type-meta {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  /* ================================ */
+  /* COMPONENTS                       */
+  /* ================================ */
+  .components-section {
+    padding: 64px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--border-hover); background: var(--bg-hover); }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-family: var(--font-body);
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+  /* Priority badges */
+  .badge-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .priority-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .priority-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Tag examples */
+  .tag-example {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  /* Pulse animation */
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pulse { animation: pulse-glow 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- ========================================= -->
+<!-- SECTION: WELCOME SCREEN (post-login)      -->
+<!-- ========================================= -->
+
+<div class="welcome-screen">
+  <!-- Mini sidebar -->
+  <div class="welcome-sidebar">
+    <div class="nc-logo"><span style="font-family:'Playfair Display',Georgia,serif;font-weight:400;font-style:italic;">N</span><span style="font-family:'Inter',-apple-system,sans-serif;font-weight:800;">C</span></div>
+    <div class="nav-icon active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </div>
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+    </div>
+    <div class="nav-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2M5.64 5.64l1.41 1.41m9.9 9.9l1.41 1.41M5.64 18.36l1.41-1.41m9.9-9.9l1.41-1.41"/></svg>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="welcome-main">
+    <!-- Topbar -->
+    <div class="welcome-topbar">
+      <div class="welcome-date">Sabado, 15 de Marco 2026</div>
+      <div class="welcome-user">
+        <span class="welcome-username">Pedro</span>
+        <div class="welcome-avatar">P</div>
+      </div>
+    </div>
+
+    <!-- Greeting -->
+    <div class="greeting">
+      <p class="greeting-hello">Bom dia,</p>
+      <h1 class="greeting-name">Pedro. <span>Como vai ser hoje?</span></h1>
+      <p class="greeting-motivation">Voce tem <em>3 jobs</em> no radar hoje. O da Natura eh o mais urgente — entrega as <em>14:00</em>. Foco nele primeiro e o resto flui.</p>
+    </div>
+
+    <!-- Status selector -->
+    <div class="status-section">
+      <p class="status-label">Como voce vai comecar?</p>
+      <div class="status-buttons">
+        <button class="status-btn highlight">
+          <span class="emoji">&#127916;</span>
+          Produzir
+          <span class="badge">3</span>
+        </button>
+        <button class="status-btn">
+          <span class="emoji">&#128218;</span>
+          Estudar
+        </button>
+        <button class="status-btn">
+          <span class="emoji">&#128994;</span>
+          Livre
+        </button>
+        <button class="status-btn">
+          <span class="emoji">&#9198;</span>
+          Ausente
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Jobs Hoje</div>
+        <div class="stat-value">3</div>
+        <div class="stat-sub">2 urgentes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Entregas</div>
+        <div class="stat-value">7 <span>/ 12</span></div>
+        <div class="stat-sub">58% concluidas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Prazo mais proximo</div>
+        <div class="stat-value" style="color: var(--prio-urgent);">2h</div>
+        <div class="stat-sub">Natura — Video Inst.</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Semana</div>
+        <div class="stat-value">18 <span>jobs</span></div>
+        <div class="stat-sub">4 concluidos</div>
+      </div>
+    </div>
+
+    <!-- Today's jobs -->
+    <div class="today-section">
+      <div class="today-header">
+        <h2 class="today-title">Seus jobs <span>hoje</span></h2>
+        <span class="today-count">3 jobs · 7 entregas pendentes</span>
+      </div>
+
+      <div class="job-cards">
+        <!-- Job 1 — Urgent -->
+        <div class="job-card prio-urgent">
+          <div class="job-card-top">
+            <div class="client-icon" style="background: linear-gradient(135deg, #EE3124, #F58634);">N</div>
+            <span class="job-countdown countdown-urgent">hoje 14:00</span>
+          </div>
+          <h3>Video Institucional</h3>
+          <p class="client-name">Natura</p>
+          <div class="job-card-footer">
+            <div class="job-tags">
+              <span class="job-tag" style="background: rgba(59,130,246,0.15); color: #3B82F6;">EDICAO</span>
+              <span class="job-tag" style="background: rgba(217,118,6,0.15); color: #D97706;">COLOR</span>
+            </div>
+            <span class="job-entregas">2/4 entregas</span>
+          </div>
+        </div>
+
+        <!-- Job 2 — High -->
+        <div class="job-card prio-high">
+          <div class="job-card-top">
+            <div class="client-icon" style="background: linear-gradient(135deg, #003DA5, #FF6600);">I</div>
+            <span class="job-countdown countdown-high">amanha 10:00</span>
+          </div>
+          <h3>Reels Q1</h3>
+          <p class="client-name">Itau</p>
+          <div class="job-card-footer">
+            <div class="job-tags">
+              <span class="job-tag" style="background: rgba(139,92,246,0.15); color: #8B5CF6;">MOTION</span>
+            </div>
+            <span class="job-entregas">1/3 entregas</span>
+          </div>
+        </div>
+
+        <!-- Job 3 — Medium -->
+        <div class="job-card prio-medium">
+          <div class="job-card-top">
+            <div class="client-icon" style="background: linear-gradient(135deg, #1D1D1B, #FFD700);">XP</div>
+            <span class="job-countdown countdown-medium">3d</span>
+          </div>
+          <h3>Campanha XP</h3>
+          <p class="client-name">Banco XP</p>
+          <div class="job-card-footer">
+            <div class="job-tags">
+              <span class="job-tag" style="background: rgba(59,130,246,0.15); color: #3B82F6;">EDICAO</span>
+              <span class="job-tag" style="background: rgba(249,115,22,0.15); color: #F97316;">MIX</span>
+            </div>
+            <span class="job-entregas">4/5 entregas</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="welcome-right">
+    <div class="right-section">
+      <p class="right-title">Equipe agora</p>
+      <div class="team-member">
+        <div class="team-avatar">
+          V
+          <div class="team-status-dot" style="background: var(--warning);"></div>
+        </div>
+        <div class="team-info">
+          <div class="team-name">Vidal</div>
+          <div class="team-task">&#127916; Spot 30s — Ambev</div>
+        </div>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar">
+          C
+          <div class="team-status-dot" style="background: var(--success);"></div>
+        </div>
+        <div class="team-info">
+          <div class="team-name">Caio</div>
+          <div class="team-task">&#128994; Livre</div>
+        </div>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar">
+          JP
+          <div class="team-status-dot" style="background: var(--warning);"></div>
+        </div>
+        <div class="team-info">
+          <div class="team-name">Joao P</div>
+          <div class="team-task">&#127916; Catalogo IA — MagLu</div>
+        </div>
+      </div>
+      <div class="team-member">
+        <div class="team-avatar">
+          D
+          <div class="team-status-dot" style="background: var(--accent);"></div>
+        </div>
+        <div class="team-info">
+          <div class="team-name">Diego</div>
+          <div class="team-task">&#128218; After Effects</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <p class="right-title">Marco 2026</p>
+      <div class="calendar-mini">
+        <div class="cal-day-name">S</div><div class="cal-day-name">T</div><div class="cal-day-name">Q</div><div class="cal-day-name">Q</div><div class="cal-day-name">S</div><div class="cal-day-name">S</div><div class="cal-day-name">D</div>
+        <div class="cal-day" style="color:var(--text-muted)">9</div>
+        <div class="cal-day has-job">10</div>
+        <div class="cal-day has-job">11</div>
+        <div class="cal-day urgent">12</div>
+        <div class="cal-day has-job">13</div>
+        <div class="cal-day">14</div>
+        <div class="cal-day today">15</div>
+        <div class="cal-day urgent">16</div>
+        <div class="cal-day has-job">17</div>
+        <div class="cal-day has-job">18</div>
+        <div class="cal-day">19</div>
+        <div class="cal-day has-job">20</div>
+        <div class="cal-day">21</div>
+        <div class="cal-day">22</div>
+      </div>
+    </div>
+
+    <div class="right-section">
+      <p class="right-title">Atividade recente</p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+          <span style="color:var(--accent);font-weight:500;">Julia</span> moveu <span style="font-weight:500;">Logo Animado</span> para REVISAO
+          <br><span style="color:var(--text-muted);font-size:11px;">ha 12min</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+          <span style="color:var(--accent);font-weight:500;">Dudu</span> criou job <span style="font-weight:500;">Spot Radio</span> — Ambev
+          <br><span style="color:var(--text-muted);font-size:11px;">ha 1h</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">
+          <span style="color:var(--success);font-weight:500;">Vidal</span> concluiu <span style="font-weight:500;">Reels Jan</span>
+          <br><span style="color:var(--text-muted);font-size:11px;">ha 3h</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SECTION: COLOR PALETTE                    -->
+<!-- ========================================= -->
+<div class="section-divider"><h2>Design System — Paleta de Cores</h2></div>
+
+<div class="palette-showcase">
+  <h2 class="palette-title">Noise<span>Cancel</span></h2>
+  <p class="palette-sub">Paleta baseada em ciencia — cores que aumentam foco, produtividade e reduzem fadiga</p>
+
+  <div class="color-group">
+    <p class="color-group-label">Fundos (dark mode — reduz fadiga ocular)</p>
+    <div class="color-swatches">
+      <div class="swatch"><div class="swatch-color" style="background:#0A0A0C;"></div><div class="swatch-name">Base</div><div class="swatch-hex">#0A0A0C</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#141416;"></div><div class="swatch-name">Primary</div><div class="swatch-hex">#141416</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#1C1C1E;"></div><div class="swatch-name">Elevated</div><div class="swatch-hex">#1C1C1E</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#2C2C2E;"></div><div class="swatch-name">Hover</div><div class="swatch-hex">#2C2C2E</div></div>
+    </div>
+  </div>
+
+  <div class="color-group">
+    <p class="color-group-label">Texto (contraste otimizado — sem branco puro)</p>
+    <div class="color-swatches">
+      <div class="swatch"><div class="swatch-color" style="background:#FFFFFF;"></div><div class="swatch-name">White</div><div class="swatch-hex">#FFFFFF</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#E5E5E7;"></div><div class="swatch-name">Primary</div><div class="swatch-hex">#E5E5E7</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#8E8E93;"></div><div class="swatch-name">Secondary</div><div class="swatch-hex">#8E8E93</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#5A5A5E;"></div><div class="swatch-name">Muted</div><div class="swatch-hex">#5A5A5E</div></div>
+    </div>
+  </div>
+
+  <div class="color-group">
+    <p class="color-group-label">Accent + Semanticas (baseadas em evidencia cientifica)</p>
+    <div class="color-swatches">
+      <div class="swatch"><div class="swatch-color" style="background:#4A90D9;"></div><div class="swatch-name">Accent (Foco)</div><div class="swatch-hex">#4A90D9</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#34C759;"></div><div class="swatch-name">Sucesso</div><div class="swatch-hex">#34C759</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#E8A317;"></div><div class="swatch-name">Atencao</div><div class="swatch-hex">#E8A317</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#D94452;"></div><div class="swatch-name">Critico</div><div class="swatch-hex">#D94452</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#8B5CF6;"></div><div class="swatch-name">Criativo</div><div class="swatch-hex">#8B5CF6</div></div>
+      <div class="swatch"><div class="swatch-color" style="background:#2DD4BF;"></div><div class="swatch-name">Revisao</div><div class="swatch-hex">#2DD4BF</div></div>
+    </div>
+  </div>
+
+  <div class="color-group">
+    <p class="color-group-label">Prioridades</p>
+    <div class="badge-grid">
+      <span class="priority-badge" style="background:rgba(217,68,82,0.15);color:var(--prio-urgent);"><span class="dot pulse" style="background:var(--prio-urgent);"></span> Atrasado</span>
+      <span class="priority-badge" style="background:rgba(217,68,82,0.12);color:var(--prio-urgent);"><span class="dot" style="background:var(--prio-urgent);"></span> Hoje 14:00</span>
+      <span class="priority-badge" style="background:rgba(232,163,23,0.15);color:var(--prio-high);"><span class="dot" style="background:var(--prio-high);"></span> Amanha 10:00</span>
+      <span class="priority-badge" style="background:rgba(74,144,217,0.15);color:var(--prio-medium);"><span class="dot" style="background:var(--prio-medium);"></span> 5d</span>
+      <span class="priority-badge" style="background:rgba(142,142,147,0.15);color:var(--prio-low);"><span class="dot" style="background:var(--prio-low);"></span> Sem Urgencia</span>
+    </div>
+  </div>
+
+  <div class="color-group">
+    <p class="color-group-label">Tags</p>
+    <div class="badge-grid">
+      <span class="tag-example" style="background:rgba(59,130,246,0.15);color:#3B82F6;">Edicao</span>
+      <span class="tag-example" style="background:rgba(139,92,246,0.15);color:#8B5CF6;">Motion</span>
+      <span class="tag-example" style="background:rgba(236,72,153,0.15);color:#EC4899;">Arte</span>
+      <span class="tag-example" style="background:rgba(217,118,6,0.15);color:#D97706;">Color</span>
+      <span class="tag-example" style="background:rgba(6,182,212,0.15);color:#06B6D4;">Mix</span>
+      <span class="tag-example" style="background:rgba(16,185,129,0.15);color:#10B981;">AI Gen</span>
+      <span class="tag-example" style="background:rgba(249,115,22,0.15);color:#F97316;">Em Aprovacao</span>
+      <span class="tag-example" style="background:rgba(34,197,94,0.15);color:#22C55E;">Aprovado</span>
+      <span class="tag-example" style="background:rgba(239,68,68,0.15);color:#EF4444;">Refacao</span>
+      <span class="tag-example" style="background:rgba(161,161,170,0.15);color:#A1A1AA;">Falta Material</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================= -->
+<!-- SECTION: TYPOGRAPHY                       -->
+<!-- ========================================= -->
+<div class="section-divider"><h2>Design System — Tipografia</h2></div>
+
+<div class="type-showcase">
+  <div class="type-sample">
+    <div class="type-meta">Display — Playfair Display (serif, titulos)</div>
+    <p style="font-family:var(--font-display);font-size:56px;font-weight:700;color:var(--text-white);line-height:1.1;">
+      Noise<span style="font-weight:300;color:var(--text-muted);">Cancel</span>
+    </p>
+  </div>
+
+  <div class="type-sample">
+    <div class="type-meta">Heading — Inter Black + Light mix</div>
+    <p style="font-family:var(--font-body);font-size:40px;line-height:1.2;">
+      <span style="font-weight:900;color:var(--text-white);">Seus jobs</span>
+      <span style="font-weight:300;color:var(--text-muted);"> hoje</span>
+    </p>
+  </div>
+
+  <div class="type-sample">
+    <div class="type-meta">Subheading — Inter Semibold</div>
+    <p style="font-family:var(--font-body);font-size:20px;font-weight:600;color:var(--text-primary);">
+      Video Institucional — Natura
+    </p>
+  </div>
+
+  <div class="type-sample">
+    <div class="type-meta">Body — Inter Regular</div>
+    <p style="font-family:var(--font-body);font-size:15px;font-weight:400;color:var(--text-secondary);line-height:1.7;max-width:600px;">
+      Voce tem 3 jobs no radar hoje. O da Natura eh o mais urgente — entrega as 14:00. Foco nele primeiro e o resto flui.
+    </p>
+  </div>
+
+  <div class="type-sample">
+    <div class="type-meta">Label — Inter Semibold Uppercase</div>
+    <p style="font-family:var(--font-body);font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;">
+      Equipe agora &nbsp;&middot;&nbsp; Prazo mais proximo &nbsp;&middot;&nbsp; Atividade recente
+    </p>
+  </div>
+
+  <div class="type-sample">
+    <div class="type-meta">Data — Playfair Display Bold (numeros grandes)</div>
+    <p style="font-family:var(--font-display);font-size:48px;font-weight:700;color:var(--text-white);">
+      18 <span style="font-size:20px;font-weight:300;color:var(--text-muted);">jobs</span>
+      &nbsp;&nbsp;
+      <span style="color:var(--prio-urgent);">2h</span>
+      &nbsp;&nbsp;
+      <span style="color:var(--success);">58<span style="font-size:20px;">%</span></span>
+    </p>
+  </div>
+
+  <div class="type-sample" style="border-bottom:none;">
+    <div class="type-meta">Botoes</div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-primary">Comecar a Produzir</button>
+      <button class="btn-secondary">Ver Board</button>
+      <button class="btn-ghost">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
