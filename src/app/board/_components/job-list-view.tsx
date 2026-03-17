@@ -43,7 +43,12 @@ export function JobListView({ colunas, jobs, onJobClick }: JobListViewProps) {
             )}
             {jobs.map((job) => {
               const coluna = colunasMap[job.coluna_id]
-              const prioConfig = calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas)
+              const COLUNAS_ENTREGUES = ['CLIENTE/AGÊNCIA', 'CLIENTE', 'ENTREGUE', 'ARQUIVO']
+              const isEntregue = coluna ? COLUNAS_ENTREGUES.some((c) => coluna.nome.toUpperCase().includes(c)) : false
+              const rawPrio = calcJobPrioridade(job.data_entrega, job.entregas, job.hora_entrega_cliente, job.margem_horas)
+              const prioConfig = isEntregue
+                ? { ...rawPrio, level: 'sem_urgencia' as const, label: 'Entregue', color: '#22C55E', countdown: null, pulse: false }
+                : rawPrio
               const formattedDate = job.data_entrega
                 ? new Date(job.data_entrega + 'T00:00:00').toLocaleDateString('pt-BR', {
                     day: '2-digit',
