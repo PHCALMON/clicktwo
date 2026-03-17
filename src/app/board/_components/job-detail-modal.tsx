@@ -5,7 +5,6 @@ import type { Job, Coluna, Comentario, Arquivo, Profile, Entrega, TagJob } from 
 import { TIPOS_JOB, TAGS } from '@/lib/constants'
 import { calcPrioridade, calcJobPrioridade } from '@/lib/priority'
 import { FileUpload } from './file-upload'
-import { ClientLogo } from '@/components/ui/client-logo'
 
 interface JobDetailModalProps {
   job: Job
@@ -30,10 +29,6 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
   const [freelaFuncao, setFreelaFuncao] = useState(job.freela_funcao ?? '')
   const [loadingComments, setLoadingComments] = useState(true)
   const [sendingComment, setSendingComment] = useState(false)
-
-
-  // Entregas error state
-  const [entregaError, setEntregaError] = useState<string | null>(null)
 
   // Entregas state
   const [entregas, setEntregas] = useState<Entrega[]>([])
@@ -198,10 +193,8 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
 
   async function handleAddEntrega(e: React.FormEvent) {
     e.preventDefault()
-    console.log('[entregas] handleAddEntrega called', { jobId: job.id, nome: novaEntregaNome })
     if (!novaEntregaNome.trim() || addingEntrega) return
     setAddingEntrega(true)
-    setEntregaError(null)
     try {
       const res = await fetch(`/api/jobs/${job.id}/entregas`, {
         method: 'POST',
@@ -214,7 +207,6 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
           margem_horas: parseInt(novaEntregaMargem) || 4,
         }),
       })
-      console.log('[entregas] Response status:', res.status)
       if (res.ok) {
         const created = await res.json()
         setEntregas((prev) => [...prev, created])
@@ -224,13 +216,10 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
         setNovaEntregaHora('')
         setNovaEntregaMargem('4')
       } else {
-        const errText = await res.text()
-        console.error('[entregas] Erro ao criar:', res.status, errText)
-        setEntregaError(`Erro ${res.status}: ${errText || 'Falha ao criar entrega'}`)
+        console.error('[entregas] Erro ao criar:', res.status, await res.text())
       }
     } catch (err) {
       console.error('[entregas] Erro de rede:', err)
-      setEntregaError(`Erro de rede: ${err instanceof Error ? err.message : 'Falha na conexao'}`)
     } finally {
       setAddingEntrega(false)
     }
@@ -296,18 +285,6 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ entrega_id: entregaId, ...fields }),
-    })
-  }
-
-  async function toggleEntregaProduzindo(entregaId: string) {
-    const entrega = entregas.find((e) => e.id === entregaId)
-    if (!entrega) return
-    const newValue = entrega.produzindo_por === currentUserId ? null : currentUserId
-    setEntregas((prev) => prev.map((e) => e.id === entregaId ? { ...e, produzindo_por: newValue } : e))
-    await fetch(`/api/jobs/${job.id}/entregas`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entrega_id: entregaId, produzindo_por: newValue }),
     })
   }
 
@@ -418,1078 +395,675 @@ export function JobDetailModal({ job, colunas, currentUserId, onClose, onUpdate,
       })
     : 'Sem data'
 
-  const prio = calcJobPrioridade(job.data_entrega, entregas, job.hora_entrega_cliente, job.margem_horas)
-  const currentColuna = colunas.find((c) => c.id === job.coluna_id)
-  const entregasConcluidas = entregas.filter((e) => e.concluida).length
-
-  // Compute internal deadline display
-  const prazoInterno = (() => {
-    if (!jobHora) return null
-    const margem = parseInt(jobMargem) || 0
-    if (margem === 0) return jobHora
-    const [h, m] = jobHora.split(':').map(Number)
-    const totalMin = h * 60 + m - margem * 60
-    const ih = Math.floor(((totalMin % 1440) + 1440) % 1440 / 60)
-    const im = ((totalMin % 1440) + 1440) % 1440 % 60
-    return `${String(ih).padStart(2, '0')}:${String(im).padStart(2, '0')}`
-  })()
-
-  function relativeTime(dateStr: string) {
-    const now = new Date()
-    const date = new Date(dateStr)
-    const diffMs = now.getTime() - date.getTime()
-    const diffMin = Math.floor(diffMs / 60000)
-    if (diffMin < 1) return 'agora'
-    if (diffMin < 60) return `ha ${diffMin}min`
-    const diffH = Math.floor(diffMin / 60)
-    if (diffH < 24) return `ha ${diffH}h`
-    const diffD = Math.floor(diffH / 24)
-    if (diffD < 30) return `ha ${diffD}d`
-    return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
-  }
-
-  // Issue 3: Save dirty freela fields before closing
-  async function handleClose() {
-    if (freelaNome.trim() !== (job.freela_nome ?? '')) {
-      await handleSaveFreela('freela_nome', freelaNome)
-    }
-    if (freelaFuncao.trim() !== (job.freela_funcao ?? '')) {
-      await handleSaveFreela('freela_funcao', freelaFuncao)
-    }
-    onClose()
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="w-full max-w-[880px] mx-4 flex flex-col max-h-[90vh]"
-        style={{
-          background: '#141416',
-          border: '1px solid #2A2A2C',
-          borderRadius: '12px',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
-          overflow: 'hidden',
-        }}
+        className="bg-bg-elevated border border-border rounded-lg shadow-elevated w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* ── HEADER ── */}
-        <div className="flex items-center justify-between" style={{ padding: '20px 28px', borderBottom: '1px solid #2A2A2C' }}>
-          <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <ClientLogo
-              nome={job.cliente?.nome ?? 'Cliente'}
-              dominio={job.cliente?.dominio}
-              cor={job.cliente?.cor}
-              size="lg"
-            />
-            <div className="min-w-0 flex-1">
-              <h2 className="font-bold text-white truncate" style={{ fontSize: '18px' }}>{job.campanha}</h2>
-              <p style={{ fontSize: '13px', color: '#8E8E93', marginTop: '2px' }}>
-                {job.cliente?.nome ?? 'Cliente'} &middot; {TIPOS_JOB[job.tipo_job]}
-              </p>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-text-primary">{job.campanha}</h2>
+            <div className="flex items-center gap-3 mt-1">
+              {job.cliente && (
+                <span className="text-sm text-text-muted">{job.cliente.nome}</span>
+              )}
+              {!editingDriveUrl ? (
+                <button
+                  onClick={() => { setDriveUrlInput(job.drive_folder_url ?? ''); setEditingDriveUrl(true) }}
+                  className={`inline-flex items-center gap-1 text-xs transition-colors ${
+                    job.drive_folder_url
+                      ? 'text-accent hover:text-accent-hover'
+                      : 'text-text-muted hover:text-text-secondary'
+                  }`}
+                  title={job.drive_folder_url ? 'Editar link do Drive' : 'Adicionar link do Drive'}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                  {job.drive_folder_url ? 'Drive' : '+ Drive'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="url"
+                    value={driveUrlInput}
+                    onChange={(e) => setDriveUrlInput(e.target.value)}
+                    placeholder="Cole a URL da pasta do Drive..."
+                    autoFocus
+                    className="flex-1 px-2 py-1 bg-bg-card border border-border rounded text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveDriveUrl()
+                      if (e.key === 'Escape') setEditingDriveUrl(false)
+                    }}
+                  />
+                  <button
+                    onClick={handleSaveDriveUrl}
+                    disabled={savingDriveUrl}
+                    className="px-2 py-1 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-50"
+                  >
+                    {savingDriveUrl ? '...' : 'OK'}
+                  </button>
+                  {job.drive_folder_url && (
+                    <a
+                      href={job.drive_folder_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent hover:text-accent-hover text-xs"
+                      title="Abrir no Drive"
+                    >
+                      Abrir
+                    </a>
+                  )}
+                  <button
+                    onClick={() => setEditingDriveUrl(false)}
+                    className="text-text-muted hover:text-text-primary text-xs"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-            {/* Drive link icon button */}
-            {job.drive_folder_url && (
-              <a
-                href={job.drive_folder_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center transition-all"
-                style={{
-                  width: '36px', height: '36px', borderRadius: '6px',
-                  border: '1px solid #2A2A2C', color: '#5A5A5E',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93'; e.currentTarget.style.background = '#252528' }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
-                title="Abrir pasta no Drive"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-              </a>
-            )}
-            {/* Delete icon button (trash) */}
-            {onDelete && (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center justify-center transition-all"
-                style={{
-                  width: '36px', height: '36px', borderRadius: '6px',
-                  border: '1px solid #2A2A2C', color: '#5A5A5E', background: 'none',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#F24822'; e.currentTarget.style.background = 'rgba(242,72,34,0.1)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
-                title="Deletar"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
-            )}
-            {/* Close X button */}
-            <button
-              onClick={handleClose}
-              className="flex items-center justify-center transition-all"
-              style={{
-                width: '36px', height: '36px', borderRadius: '6px',
-                border: '1px solid #2A2A2C', color: '#5A5A5E', background: 'none',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93'; e.currentTarget.style.background = '#252528' }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E'; e.currentTarget.style.background = 'none' }}
-              title="Fechar"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
+          <button onClick={onClose} className="text-text-muted hover:text-text-primary text-xl ml-4">
+            &times;
+          </button>
         </div>
 
-        {/* ── DELETE CONFIRMATION (inline, appears below header) ── */}
-        {showDeleteConfirm && (
-          <div className="px-7 py-3" style={{ background: 'rgba(242,72,34,0.08)', borderBottom: '1px solid rgba(242,72,34,0.2)' }}>
-            <p style={{ fontSize: '13px', color: '#F24822', fontWeight: 500, marginBottom: '8px' }}>
-              Digite seu nome para confirmar a exclusao:
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={deleteConfirmName}
-                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                placeholder="Seu nome..."
-                autoFocus
-                className="flex-1 focus:outline-none"
-                style={{
-                  padding: '8px 12px', background: '#1A1A1D', border: '1px solid rgba(242,72,34,0.3)',
-                  borderRadius: '8px', fontSize: '13px', color: '#E5E5E7',
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (deleteConfirmName.trim().length >= 2) {
-                    onDelete?.(job.id)
-                  }
-                }}
-                disabled={deleteConfirmName.trim().length < 2}
-                style={{
-                  padding: '8px 16px', background: '#F24822', color: 'white',
-                  fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
-                  opacity: deleteConfirmName.trim().length < 2 ? 0.4 : 1,
-                  cursor: deleteConfirmName.trim().length < 2 ? 'not-allowed' : 'pointer',
-                }}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* Meta info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <span className="text-xs text-text-muted block mb-1">Coluna</span>
+              <select
+                value={job.coluna_id}
+                onChange={(e) => handleMoveColumn(e.target.value)}
+                className="w-full px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
               >
-                Confirmar
-              </button>
-              <button
-                onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
-                style={{ fontSize: '12px', color: '#8E8E93', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
+                {colunas.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <span className="text-xs text-text-muted block mb-1">Tipo</span>
+              <p className="text-sm text-text-secondary px-2 py-1.5">
+                {TIPOS_JOB[job.tipo_job]}
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-text-muted block mb-1">Prioridade</span>
+              {(() => {
+                const prio = calcJobPrioridade(job.data_entrega, entregas, job.hora_entrega_cliente, job.margem_horas)
+                return (
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full${prio.pulse ? ' animate-pulse' : ''}`}
+                      style={{ backgroundColor: prio.color }}
+                    />
+                    <span className="text-sm text-text-secondary">{prio.label}</span>
+                    {prio.countdown && (
+                      <span className="text-xs font-mono font-semibold" style={{ color: prio.color }}>
+                        {prio.countdown}
+                      </span>
+                    )}
+                    {prio.entregasTotal > 0 && (
+                      <span className="text-xs text-text-muted">
+                        &middot; {prio.entregasConcluidas}/{prio.entregasTotal}
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+            <div>
+              <span className="text-xs text-text-muted block mb-1">Entrega</span>
+              <p className="text-sm text-text-secondary px-2 py-1.5">{formattedDate}</p>
             </div>
           </div>
-        )}
 
-        {/* ── TWO-COLUMN BODY ── */}
-        <div className="flex flex-1 min-h-0" style={{ minHeight: '600px' }}>
-
-          {/* ── LEFT COLUMN ── */}
-          <div className="flex-1 overflow-y-auto" style={{ padding: '24px 28px', borderRight: '1px solid #2A2A2C' }}>
-
-            {/* PRIORITY BANNER */}
-            <div
-              className="flex items-center gap-2.5"
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                marginBottom: '20px',
-                background: `${prio.color}15`,
-                border: `1px solid ${prio.color}33`,
-              }}
-            >
-              <span
-                className={`w-2 h-2 rounded-full flex-shrink-0${prio.pulse ? ' animate-pulse' : ''}`}
-                style={{ backgroundColor: prio.color }}
-              />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: prio.color }}>
-                {prio.label}
-              </span>
-              {prio.countdown && (
-                <span style={{ fontSize: '13px', fontWeight: 700, color: prio.color, marginLeft: 'auto' }}>
-                  {prio.countdown}
+          {/* Prazo do cliente: hora + margem */}
+          <div>
+            <span className="text-xs text-text-muted block mb-2">Prazo do Cliente (horario + margem revisao)</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-text-muted">Hora:</span>
+                <input
+                  type="time"
+                  value={jobHora}
+                  onChange={(e) => {
+                    setJobHora(e.target.value)
+                    handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
+                  }}
+                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent [color-scheme:dark]"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-text-muted">Margem:</span>
+                <select
+                  value={jobMargem}
+                  onChange={(e) => {
+                    setJobMargem(e.target.value)
+                    handleSaveJobDeadline('margem_horas', e.target.value)
+                  }}
+                  className="px-2 py-1 bg-bg-card border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="0">Sem margem</option>
+                  <option value="2">2h antes</option>
+                  <option value="4">4h antes</option>
+                  <option value="6">6h antes</option>
+                  <option value="8">8h antes</option>
+                </select>
+              </div>
+              {jobHora && (
+                <span className="text-xs text-text-muted italic">
+                  Cliente: {jobHora} &rarr; Time ve o prazo interno
                 </span>
               )}
             </div>
+          </div>
 
-            {/* INFORMACOES */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Informacoes
-              </div>
-              <div className="grid grid-cols-2" style={{ gap: '12px' }}>
-                {/* Coluna */}
-                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
-                    Coluna
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {currentColuna?.cor && (
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
-                    )}
-                    <select
-                      value={job.coluna_id}
-                      onChange={(e) => handleMoveColumn(e.target.value)}
-                      className="w-full focus:outline-none"
-                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
-                    >
-                      {colunas.map((c) => (
-                        <option key={c.id} value={c.id} style={{ background: '#1C1C1E' }}>{c.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {/* Tipo */}
-                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
-                    Tipo
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7' }}>
-                    {TIPOS_JOB[job.tipo_job]}
-                  </div>
-                </div>
-                {/* Data Entrega */}
-                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
-                    Data Entrega
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7' }}>
-                    {formattedDate}
-                  </div>
-                </div>
-                {/* Prazo do Cliente */}
-                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
-                    Prazo do Cliente
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <input
-                      type="time"
-                      value={jobHora}
-                      onChange={(e) => {
-                        setJobHora(e.target.value)
-                        handleSaveJobDeadline('hora_entrega_cliente', e.target.value)
-                      }}
-                      className="focus:outline-none [color-scheme:dark]"
-                      style={{ fontSize: '12px', fontWeight: 600, color: '#8E8E93', background: 'transparent', border: 'none', width: '60px' }}
-                    />
-                    {jobHora && (
-                      <>
-                        <span style={{ fontSize: '12px', color: '#5A5A5E', fontWeight: 400 }}>&rarr; interno </span>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: prio.color }}>
-                          {prazoInterno ?? jobHora}
-                        </span>
-                      </>
-                    )}
-                    <select
-                      value={jobMargem}
-                      onChange={(e) => {
-                        setJobMargem(e.target.value)
-                        handleSaveJobDeadline('margem_horas', e.target.value)
-                      }}
-                      className="focus:outline-none"
-                      style={{ fontSize: '10px', color: '#5A5A5E', fontWeight: 400, background: 'transparent', border: 'none' }}
-                    >
-                      <option value="0">Sem margem</option>
-                      <option value="2">(-2h)</option>
-                      <option value="4">(-4h)</option>
-                      <option value="6">(-6h)</option>
-                      <option value="8">(-8h)</option>
-                    </select>
-                  </div>
-                </div>
-                {/* Responsavel */}
-                <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '12px', gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '6px' }}>
-                    Responsavel
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const assignee = membros.find((m) => m.id === job.assignee_id)
-                      if (assignee) {
-                        return (
-                          <div
-                            className="flex items-center justify-center flex-shrink-0"
-                            style={{
-                              width: '24px', height: '24px', borderRadius: '9999px',
-                              background: 'rgba(99,102,241,0.15)', color: '#818CF8',
-                              fontWeight: 700, fontSize: '10px',
-                            }}
-                          >
-                            {assignee.avatar_url ? (
-                              <img src={assignee.avatar_url} alt="" style={{ width: '24px', height: '24px', borderRadius: '9999px', objectFit: 'cover' }} />
-                            ) : (
-                              assignee.nome.substring(0, 2).toUpperCase()
-                            )}
-                          </div>
-                        )
-                      }
-                      return null
-                    })()}
-                    <select
-                      value={job.assignee_id ?? ''}
-                      onChange={async (e) => {
-                        const newAssigneeId = e.target.value || null
-                        onUpdate({ ...job, assignee_id: newAssigneeId })
-                        await fetch(`/api/jobs/${job.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ assignee_id: newAssigneeId }),
-                        })
-                      }}
-                      className="w-full focus:outline-none"
-                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
-                    >
-                      <option value="" style={{ background: '#1C1C1E' }}>Sem responsavel</option>
-                      {membros.map((m) => (
-                        <option key={m.id} value={m.id} style={{ background: '#1C1C1E' }}>{m.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* FREELA */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Freela
-              </div>
-              {(job.freela_nome || freelaNome) ? (
-                <>
-                <div
-                  className="flex items-center"
-                  style={{ gap: '12px', padding: '14px', background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px' }}
-                >
-                  {/* Freela avatar — circle, orange */}
-                  <div
-                    className="flex items-center justify-center flex-shrink-0"
-                    style={{
-                      width: '36px', height: '36px', borderRadius: '9999px',
-                      background: 'rgba(255,140,0,0.15)', color: '#FF8C00',
-                      fontWeight: 700, fontSize: '14px',
-                    }}
-                  >
-                    {(freelaNome || 'F').substring(0, 2).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <input
-                      type="text"
-                      value={freelaNome}
-                      onChange={(e) => setFreelaNome(e.target.value)}
-                      onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                      placeholder="Nome do freela"
-                      className="w-full focus:outline-none"
-                      style={{ fontSize: '14px', fontWeight: 600, color: '#E5E5E7', background: 'transparent', border: 'none' }}
-                    />
-                    <input
-                      type="text"
-                      value={freelaFuncao}
-                      onChange={(e) => setFreelaFuncao(e.target.value)}
-                      onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                      placeholder="Funcao (ex: Motion Designer)"
-                      className="w-full focus:outline-none"
-                      style={{ fontSize: '12px', color: '#FF8C00', background: 'transparent', border: 'none' }}
-                    />
-                  </div>
-                </div>
-                </>
-              ) : (
-                <button
-                  onClick={() => { setFreelaNome(''); setFreelaFuncao('') }}
-                  className="w-full text-left focus:outline-none transition-colors"
-                  style={{
-                    padding: '14px', fontSize: '13px', color: '#5A5A5E',
-                    background: 'transparent', border: '1px dashed #2A2A2C', borderRadius: '8px',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3A3A3C'; e.currentTarget.style.color = '#8E8E93' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2A2A2C'; e.currentTarget.style.color = '#5A5A5E' }}
-                >
-                  + Adicionar freela
-                </button>
-              )}
-            </div>
-
-            {/* ENTREGAS */}
-            <div style={{ marginBottom: '28px' }}>
-              <div className="flex items-center justify-between" style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                <span>Entregas</span>
-                {entregas.length > 0 && (
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#14AE5C', letterSpacing: 'normal', textTransform: 'uppercase' }}>
-                    {entregasConcluidas}/{entregas.length} concluidas
-                  </span>
-                )}
-              </div>
-
-              {entregas.length > 0 && (
-                <div>
-                  {entregas.map((entrega) => {
-                    const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
-                    return (
-                      <div
-                        key={entrega.id}
-                        className="flex gap-2.5"
-                        style={{ padding: '10px 0', borderBottom: '1px solid #2A2A2C', alignItems: 'flex-start' }}
-                      >
-                        {/* Checkbox */}
-                        <button
-                          onClick={() => toggleEntrega(entrega.id)}
-                          className="flex items-center justify-center flex-shrink-0 transition-all"
-                          style={{
-                            width: '18px', height: '18px', borderRadius: '4px', marginTop: '1px',
-                            border: entrega.concluida ? '2px solid #14AE5C' : '2px solid #3A3A3C',
-                            background: entrega.concluida ? '#14AE5C' : 'transparent',
-                            color: entrega.concluida ? 'white' : 'transparent',
-                          }}
-                        >
-                          {entrega.concluida && (
-                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div
-                              style={{
-                                fontSize: '13px', fontWeight: 500, flex: 1,
-                                color: entrega.concluida ? '#5A5A5E' : '#E5E5E7',
-                                textDecoration: entrega.concluida ? 'line-through' : 'none',
-                              }}
-                            >
-                              {entrega.nome}
-                            </div>
-                            {/* Produzindo esta entrega */}
-                            <button
-                              onClick={() => toggleEntregaProduzindo(entrega.id)}
-                              title={entrega.produzindo_por === currentUserId ? 'Parar de produzir' : 'Estou nesta entrega'}
-                              className="flex items-center gap-1 flex-shrink-0 transition-all"
-                              style={{
-                                padding: '2px 8px', borderRadius: '9999px', fontSize: '10px', fontWeight: 600,
-                                background: entrega.produzindo_por === currentUserId ? 'rgba(20,174,92,0.12)' : 'transparent',
-                                border: entrega.produzindo_por === currentUserId ? '1px solid rgba(20,174,92,0.3)' : '1px dashed #2A2A2C',
-                                color: entrega.produzindo_por === currentUserId ? '#14AE5C' : '#5A5A5E',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {entrega.produzindo_por === currentUserId ? (
-                                <>
-                                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#14AE5C' }} />
-                                  Eu
-                                </>
-                              ) : entrega.produzindo_por ? (
-                                <>
-                                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#FF8C00' }} />
-                                  {(() => {
-                                    const m = membros.find((mb) => mb.id === entrega.produzindo_por)
-                                    return m?.nome?.split(' ')[0] ?? '...'
-                                  })()}
-                                </>
-                              ) : (
-                                'Pegar'
-                              )}
-                            </button>
-                          </div>
-                          {/* Meta row: tag + deadline */}
-                          <div className="flex items-center gap-2" style={{ marginTop: '4px' }}>
-                            {/* Tag badge */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
-                                style={{
-                                  fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
-                                  borderRadius: '9999px', padding: '2px 7px',
-                                  background: entrega.tag && TAGS[entrega.tag] ? `${TAGS[entrega.tag].color}26` : 'transparent',
-                                  color: entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].color : '#5A5A5E',
-                                  border: entrega.tag && TAGS[entrega.tag] ? 'none' : '1px dashed #2A2A2C',
-                                  cursor: 'pointer',
-                                }}
-                                title="Editar tag"
-                              >
-                                {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
-                              </button>
-                              {editingEntregaTagId === entrega.id && (
-                                <>
-                                  <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
-                                  <div className="absolute left-0 top-full mt-1 z-50 overflow-y-auto" style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '6px', width: '176px', maxHeight: '240px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
-                                    <button
-                                      onClick={() => updateEntregaTag(entrega.id, null)}
-                                      className="flex items-center gap-2 w-full text-left transition-colors"
-                                      style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', background: !entrega.tag ? '#1A1A1D' : 'transparent' }}
-                                    >
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#2A2A2C' }} />
-                                      <span style={{ color: '#5A5A5E' }}>Nenhuma</span>
-                                    </button>
-                                    {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                                      ([value, config]) => (
-                                        <button
-                                          key={value}
-                                          onClick={() => updateEntregaTag(entrega.id, value)}
-                                          className="flex items-center gap-2 w-full text-left transition-colors"
-                                          style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '12px', background: entrega.tag === value ? '#1A1A1D' : 'transparent' }}
-                                        >
-                                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: config.color }} />
-                                          <span style={{ color: entrega.tag === value ? '#E5E5E7' : '#8E8E93', fontWeight: entrega.tag === value ? 500 : 400 }}>
-                                            {config.label}
-                                          </span>
-                                          {entrega.tag === value && (
-                                            <span className="ml-auto" style={{ color: '#4A90D9', fontSize: '10px' }}>&#10003;</span>
-                                          )}
-                                        </button>
-                                      )
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                            {/* Entrega deadline controls */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <input
-                                type="date"
-                                value={entrega.data_entrega ?? ''}
-                                onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
-                                className="focus:outline-none [color-scheme:dark]"
-                                style={{ width: '90px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
-                              />
-                              <input
-                                type="time"
-                                value={entrega.hora_entrega_cliente ?? ''}
-                                onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
-                                className="focus:outline-none [color-scheme:dark]"
-                                style={{ width: '60px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
-                                title="Hora do cliente"
-                              />
-                              <select
-                                value={String(entrega.margem_horas ?? 4)}
-                                onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
-                                className="focus:outline-none"
-                                style={{ width: '44px', fontSize: '10px', fontWeight: 600, color: '#5A5A5E', background: 'transparent', border: 'none' }}
-                                title="Margem de revisao"
-                              >
-                                <option value="0">0h</option>
-                                <option value="2">-2h</option>
-                                <option value="4">-4h</option>
-                                <option value="6">-6h</option>
-                                <option value="8">-8h</option>
-                              </select>
-                              {ep && ep.countdown && (
-                                <span style={{ fontSize: '10px', fontWeight: 600, color: ep.color, fontFamily: 'monospace' }}>
-                                  {ep.countdown}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {/* Delete entrega */}
-                        <button
-                          onClick={() => deleteEntrega(entrega.id)}
-                          className="flex-shrink-0 transition-colors"
-                          style={{ fontSize: '14px', color: '#5A5A5E', background: 'none', border: 'none', cursor: 'pointer', marginTop: '2px' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.color = '#F24822' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.color = '#5A5A5E' }}
-                          title="Remover"
-                        >
-                          &times;
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Add entrega form */}
-              <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 0' }}>
-                <input
-                  type="text"
-                  value={novaEntregaNome}
-                  onChange={(e) => setNovaEntregaNome(e.target.value)}
-                  placeholder="+ Adicionar entrega"
-                  className="flex-1 min-w-[120px] focus:outline-none"
-                  style={{ fontSize: '13px', color: '#5A5A5E', background: 'transparent', border: 'none', cursor: 'text' }}
-                />
-                {novaEntregaNome.trim() && (
+          {/* Em Producao toggle */}
+          {onEmProducaoToggle && (
+            <div>
+              <span className="text-xs text-text-muted block mb-2">Producao</span>
+              <button
+                onClick={() => onEmProducaoToggle(job.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all border ${
+                  job.em_producao_por === currentUserId
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                    : 'bg-bg-card border-border text-text-secondary hover:border-accent hover:text-accent'
+                }`}
+              >
+                {job.em_producao_por === currentUserId ? (
                   <>
-                    <input
-                      type="date"
-                      value={novaEntregaData}
-                      onChange={(e) => setNovaEntregaData(e.target.value)}
-                      className="focus:outline-none [color-scheme:dark]"
-                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
-                      title="Data de entrega"
-                    />
-                    <input
-                      type="time"
-                      value={novaEntregaHora}
-                      onChange={(e) => setNovaEntregaHora(e.target.value)}
-                      className="focus:outline-none [color-scheme:dark]"
-                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
-                      title="Hora do cliente"
-                    />
-                    <select
-                      value={novaEntregaMargem}
-                      onChange={(e) => setNovaEntregaMargem(e.target.value)}
-                      className="focus:outline-none"
-                      style={{ padding: '4px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
-                      title="Margem"
-                    >
-                      <option value="0">0h</option>
-                      <option value="2">-2h</option>
-                      <option value="4">-4h</option>
-                      <option value="6">-6h</option>
-                      <option value="8">-8h</option>
-                    </select>
-                    <select
-                      value={novaEntregaTag}
-                      onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
-                      className="focus:outline-none"
-                      style={{ padding: '4px 8px', background: '#1A1A1D', border: '1px solid #2A2A2C', borderRadius: '8px', fontSize: '11px', color: '#8E8E93' }}
-                    >
-                      <option value="">Tag</option>
-                      {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                        ([value, config]) => (
-                          <option key={value} value={value}>{config.label}</option>
-                        )
-                      )}
-                    </select>
-                    <button
-                      type="submit"
-                      disabled={!novaEntregaNome.trim() || addingEntrega}
-                      style={{
-                        padding: '4px 12px', background: '#4A90D9', color: 'white',
-                        fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
-                        opacity: (!novaEntregaNome.trim() || addingEntrega) ? 0.4 : 1,
-                        cursor: (!novaEntregaNome.trim() || addingEntrega) ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {addingEntrega ? '...' : '+'}
-                    </button>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                    Produzindo — Parar
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-text-muted" />
+                    Estou fazendo este job
                   </>
                 )}
-              </form>
-              {entregaError && (
-                <div style={{ padding: '6px 10px', marginTop: '4px', fontSize: '12px', color: '#F24822', background: 'rgba(242,72,34,0.08)', border: '1px solid rgba(242,72,34,0.2)', borderRadius: '6px' }}>
-                  {entregaError}
-                </div>
+              </button>
+              {job.em_producao_por && job.em_producao_por !== currentUserId && (
+                <p className="text-xs text-text-muted mt-1">Outro membro esta produzindo este job</p>
               )}
             </div>
+          )}
 
-            {/* TAGS */}
-            <div className="relative" style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Tags
-              </div>
-              <div className="flex flex-wrap" style={{ gap: '6px' }}>
-                {job.tags.map((tag) => TAGS[tag] && (
-                  <span
-                    key={tag}
-                    style={{
-                      fontSize: '11px', fontWeight: 600, padding: '4px 12px',
-                      borderRadius: '9999px', cursor: 'pointer',
-                      background: `${TAGS[tag].color}26`,
-                      color: TAGS[tag].color,
-                    }}
-                  >
-                    {TAGS[tag].label}
-                  </span>
-                ))}
-                <button
-                  onClick={() => setShowTagPicker((v) => !v)}
+          {/* Tags — editable */}
+          <div className="relative">
+            <span className="text-xs text-text-muted block mb-2">Tags</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {job.tags.map((tag) => TAGS[tag] && (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 rounded-sm text-xs font-medium"
                   style={{
-                    fontSize: '11px', fontWeight: 600, padding: '4px 12px',
-                    borderRadius: '9999px', cursor: 'pointer',
-                    background: 'transparent', color: '#5A5A5E',
-                    border: '1px dashed #2A2A2C',
+                    backgroundColor: `${TAGS[tag].color}20`,
+                    color: TAGS[tag].color,
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#4A90D9' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#5A5A5E' }}
-                  title="Editar tags"
                 >
-                  + Tag
-                </button>
-              </div>
-              {showTagPicker && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
-                  <div className="absolute left-0 top-full mt-1 z-50 overflow-y-auto" style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '8px', width: '208px', maxHeight: '288px', boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
-                    {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
-                      ([value, config]) => {
-                        const active = job.tags.includes(value)
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => toggleJobTag(value)}
-                            className="flex items-center gap-2 w-full text-left transition-colors"
-                            style={{ padding: '6px 8px', borderRadius: '6px', fontSize: '12px', background: active ? '#1A1A1D' : 'transparent' }}
-                          >
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: config.color }} />
-                            <span style={{ color: active ? '#E5E5E7' : '#8E8E93', fontWeight: active ? 500 : 400 }}>
-                              {config.label}
-                            </span>
-                            {active && (
-                              <span className="ml-auto" style={{ color: '#4A90D9', fontSize: '10px' }}>&#10003;</span>
-                            )}
-                          </button>
-                        )
-                      }
-                    )}
-                  </div>
-                </>
-              )}
+                  {TAGS[tag].label}
+                </span>
+              ))}
+              <button
+                onClick={() => setShowTagPicker((v) => !v)}
+                className="inline-flex items-center justify-center w-5 h-5 rounded-sm text-xs text-text-muted hover:text-accent hover:bg-bg-card transition-colors"
+                title="Editar tags"
+              >
+                +
+              </button>
             </div>
-
-            {/* FILES */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Arquivos
-              </div>
-              <FileUpload
-                jobId={job.id}
-                arquivos={arquivos}
-                onUpload={handleFileUpload}
-                onDelete={handleFileDelete}
-              />
-            </div>
-
+            {showTagPicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowTagPicker(false)} />
+                <div className="absolute left-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-2 w-52 max-h-72 overflow-y-auto">
+                  {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                    ([value, config]) => {
+                      const active = job.tags.includes(value)
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => toggleJobTag(value)}
+                          className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-left transition-colors ${
+                            active ? 'bg-bg-card' : 'hover:bg-bg-card'
+                          }`}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: config.color }}
+                          />
+                          <span className={active ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                            {config.label}
+                          </span>
+                          {active && (
+                            <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                          )}
+                        </button>
+                      )
+                    }
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* ── RIGHT COLUMN (sidebar) ── */}
-          <div className="flex-shrink-0 overflow-y-auto" style={{ width: '300px', padding: '24px 20px' }}>
+          {/* Freela */}
+          <div>
+            <span className="text-xs text-text-muted block mb-2">Freela</span>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="text"
+                value={freelaNome}
+                onChange={(e) => setFreelaNome(e.target.value)}
+                onBlur={() => handleSaveFreela('freela_nome', freelaNome)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                placeholder="Nome do freela"
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+              />
+              <input
+                type="text"
+                value={freelaFuncao}
+                onChange={(e) => setFreelaFuncao(e.target.value)}
+                onBlur={() => handleSaveFreela('freela_funcao', freelaFuncao)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                placeholder="Funcao (ex: Motion Designer)"
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+              />
+            </div>
+          </div>
 
-            {/* STATUS */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Status
-              </div>
-              <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '14px' }}>
-                {job.em_producao_por === currentUserId ? (
-                  <button
-                    onClick={() => onEmProducaoToggle?.(job.id)}
-                    className="flex items-center gap-2.5 w-full transition-all"
-                    style={{
-                      padding: '12px 14px', borderRadius: '8px', cursor: 'pointer',
-                      background: 'rgba(20,174,92,0.08)', border: '1px solid rgba(20,174,92,0.2)',
-                    }}
+          {/* Entregas */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-text-muted">
+                Entregas {entregas.length > 0 && (
+                  <span className="text-text-secondary font-medium ml-1">
+                    {entregas.filter((e) => e.concluida).length}/{entregas.length}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            {entregas.length > 0 && (
+              <div className="space-y-1.5 mb-3">
+                {entregas.map((entrega) => (
+                  <div
+                    key={entrega.id}
+                    className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
+                      entrega.concluida
+                        ? 'bg-bg-primary border-border opacity-60'
+                        : 'bg-bg-card border-border'
+                    }`}
                   >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0 animate-pulse"
-                      style={{ background: '#14AE5C' }}
-                    />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#14AE5C' }}>
-                      Produzindo
-                    </span>
-                  </button>
-                ) : onEmProducaoToggle ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      {currentColuna?.cor && (
-                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
+                    <button
+                      onClick={() => toggleEntrega(entrega.id)}
+                      className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                        entrega.concluida
+                          ? 'bg-accent border-accent text-bg-primary'
+                          : 'border-border hover:border-accent'
+                      }`}
+                    >
+                      {entrega.concluida && (
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
                       )}
-                      <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
+                    </button>
+                    <span className={`text-sm flex-1 ${entrega.concluida ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                      {entrega.nome}
+                    </span>
+                    {/* Deadline per entrega */}
+                    {(() => {
+                      const ep = entrega.data_entrega ? calcPrioridade(entrega.data_entrega, entrega.hora_entrega_cliente, entrega.margem_horas) : null
+                      return (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <input
+                            type="date"
+                            value={entrega.data_entrega ?? ''}
+                            onChange={(e) => updateEntregaDate(entrega.id, e.target.value || null)}
+                            className="w-[100px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                          />
+                          <input
+                            type="time"
+                            value={entrega.hora_entrega_cliente ?? ''}
+                            onChange={(e) => updateEntregaDeadline(entrega.id, { hora_entrega_cliente: e.target.value || null })}
+                            className="w-[70px] px-1 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent [color-scheme:dark]"
+                            title="Hora do cliente"
+                          />
+                          <select
+                            value={String(entrega.margem_horas ?? 4)}
+                            onChange={(e) => updateEntregaDeadline(entrega.id, { margem_horas: parseInt(e.target.value) })}
+                            className="w-[52px] px-0.5 py-0.5 bg-transparent border border-transparent hover:border-border rounded text-[10px] text-text-muted focus:outline-none focus:border-accent"
+                            title="Margem de revisao"
+                          >
+                            <option value="0">0h</option>
+                            <option value="2">-2h</option>
+                            <option value="4">-4h</option>
+                            <option value="6">-6h</option>
+                            <option value="8">-8h</option>
+                          </select>
+                          {ep && ep.countdown && (
+                            <span className="text-[10px] font-mono font-semibold" style={{ color: ep.color }}>
+                              {ep.countdown}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                    <div className="relative">
+                      <button
+                        onClick={() => setEditingEntregaTagId(editingEntregaTagId === entrega.id ? null : entrega.id)}
+                        className={`px-1.5 py-0.5 rounded-sm text-[10px] font-medium transition-colors ${
+                          entrega.tag && TAGS[entrega.tag]
+                            ? ''
+                            : 'text-text-muted hover:text-text-secondary border border-dashed border-border'
+                        }`}
+                        style={entrega.tag && TAGS[entrega.tag] ? {
+                          backgroundColor: `${TAGS[entrega.tag].color}20`,
+                          color: TAGS[entrega.tag].color,
+                        } : undefined}
+                        title="Editar tag"
+                      >
+                        {entrega.tag && TAGS[entrega.tag] ? TAGS[entrega.tag].label : 'tag'}
+                      </button>
+                      {editingEntregaTagId === entrega.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setEditingEntregaTagId(null)} />
+                          <div className="absolute right-0 top-full mt-1 z-50 bg-bg-elevated border border-border rounded-md shadow-elevated p-1.5 w-44 max-h-60 overflow-y-auto">
+                            <button
+                              onClick={() => updateEntregaTag(entrega.id, null)}
+                              className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                !entrega.tag ? 'bg-bg-card' : 'hover:bg-bg-card'
+                              }`}
+                            >
+                              <span className="w-2 h-2 rounded-full bg-border flex-shrink-0" />
+                              <span className="text-text-muted">Nenhuma</span>
+                            </button>
+                            {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                              ([value, config]) => (
+                                <button
+                                  key={value}
+                                  onClick={() => updateEntregaTag(entrega.id, value)}
+                                  className={`flex items-center gap-2 w-full px-2 py-1 rounded text-xs text-left transition-colors ${
+                                    entrega.tag === value ? 'bg-bg-card' : 'hover:bg-bg-card'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-2 h-2 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: config.color }}
+                                  />
+                                  <span className={entrega.tag === value ? 'text-text-primary font-medium' : 'text-text-secondary'}>
+                                    {config.label}
+                                  </span>
+                                  {entrega.tag === value && (
+                                    <span className="ml-auto text-accent text-[10px]">&#10003;</span>
+                                  )}
+                                </button>
+                              )
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                     <button
-                      onClick={() => onEmProducaoToggle(job.id)}
-                      className="flex items-center justify-center gap-2 w-full transition-all hover:opacity-80"
-                      style={{
-                        padding: '10px 14px', borderRadius: '8px', cursor: 'pointer',
-                        background: 'rgba(74,144,217,0.1)', border: '1px solid rgba(74,144,217,0.25)',
-                      }}
+                      onClick={() => deleteEntrega(entrega.id)}
+                      className="text-text-muted hover:text-red-400 transition-colors text-xs flex-shrink-0"
+                      title="Remover"
                     >
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5" style={{ color: '#4A90D9' }}>
-                        <polygon points="5 3 19 12 5 21 5 3" />
-                      </svg>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#4A90D9' }}>
-                        Produzir este job
-                      </span>
+                      &times;
                     </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {currentColuna?.cor && (
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: currentColuna.cor }} />
-                    )}
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#8E8E93' }}>{currentColuna?.nome ?? 'Sem coluna'}</span>
-                  </div>
-                )}
-                {job.em_producao_por && job.em_producao_por !== currentUserId && (
-                  <p style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '6px' }}>Outro membro esta produzindo</p>
-                )}
-              </div>
-            </div>
-
-            {/* GOOGLE DRIVE */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                Google Drive
-              </div>
-              <div style={{ background: '#1C1C1E', border: '1px solid #2A2A2C', borderRadius: '8px', padding: '14px' }}>
-                {!editingDriveUrl ? (
-                  <button
-                    onClick={() => {
-                      if (job.drive_folder_url) {
-                        window.open(job.drive_folder_url, '_blank')
-                      } else {
-                        setDriveUrlInput(job.drive_folder_url ?? '')
-                        setEditingDriveUrl(true)
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      setDriveUrlInput(job.drive_folder_url ?? '')
-                      setEditingDriveUrl(true)
-                    }}
-                    className="flex items-center gap-2.5 w-full transition-all"
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      fontSize: '13px',
-                      color: job.drive_folder_url ? '#8E8E93' : '#5A5A5E',
-                    }}
-                    onMouseEnter={(e) => { if (job.drive_folder_url) e.currentTarget.style.color = '#4A90D9' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.color = job.drive_folder_url ? '#8E8E93' : '#5A5A5E' }}
-                  >
-                    <svg className="w-[18px] h-[18px] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                    </svg>
-                    {job.drive_folder_url ? 'Abrir pasta do job' : '+ Adicionar link'}
-                  </button>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="url"
-                      value={driveUrlInput}
-                      onChange={(e) => setDriveUrlInput(e.target.value)}
-                      placeholder="Cole a URL da pasta do Drive..."
-                      autoFocus
-                      className="w-full focus:outline-none"
-                      style={{
-                        padding: '8px 12px', background: '#1A1A1D', border: '1px solid #2A2A2C',
-                        borderRadius: '8px', fontSize: '12px', color: '#E5E5E7',
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveDriveUrl()
-                        if (e.key === 'Escape') setEditingDriveUrl(false)
-                      }}
-                    />
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleSaveDriveUrl}
-                        disabled={savingDriveUrl}
-                        style={{
-                          padding: '6px 14px', background: '#4A90D9', color: 'white',
-                          fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: 'none',
-                          opacity: savingDriveUrl ? 0.5 : 1, cursor: savingDriveUrl ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {savingDriveUrl ? '...' : 'Salvar'}
-                      </button>
-                      {job.drive_folder_url && (
-                        <a
-                          href={job.drive_folder_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '12px', color: '#4A90D9' }}
-                        >
-                          Abrir
-                        </a>
-                      )}
-                      <button
-                        onClick={() => setEditingDriveUrl(false)}
-                        style={{ fontSize: '12px', color: '#5A5A5E', marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* COMENTARIOS */}
-            <div style={{ marginBottom: '28px' }}>
-              <div className="flex items-center gap-2" style={{ fontSize: '11px', fontWeight: 600, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '12px' }}>
-                <span>Comentarios</span>
-                <span
-                  className="flex items-center justify-center"
-                  style={{
-                    fontSize: '10px', fontWeight: 700, color: 'white',
-                    background: '#4A90D9', borderRadius: '9999px',
-                    minWidth: '20px', height: '18px', padding: '0 6px',
-                  }}
-                >
-                  {comentarios.length}
-                </span>
-              </div>
-
-              <div>
-                {loadingComments ? (
-                  <p style={{ fontSize: '12px', color: '#5A5A5E', fontStyle: 'italic' }}>Carregando...</p>
-                ) : comentarios.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: '#5A5A5E', fontStyle: 'italic' }}>
-                    Nenhum comentario ainda.
-                  </p>
-                ) : null}
-
-                {comentarios.map((c) => (
-                  <div
-                    key={c.id}
-                    style={{ padding: '12px 0', borderBottom: '1px solid #2A2A2C' }}
-                  >
-                    <div className="flex items-center gap-2" style={{ marginBottom: '6px' }}>
-                      {/* Avatar circle */}
-                      <div
-                        className="flex items-center justify-center flex-shrink-0"
-                        style={{
-                          width: '24px', height: '24px', borderRadius: '9999px',
-                          background: '#252528', color: '#8E8E93',
-                          fontWeight: 700, fontSize: '10px',
-                        }}
-                      >
-                        {(c.autor?.nome ?? 'M').charAt(0).toUpperCase()}
-                      </div>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#E5E5E7' }}>
-                        {c.autor?.nome ?? 'Membro'}
-                      </span>
-                      <span style={{ fontSize: '11px', color: '#5A5A5E', marginLeft: 'auto', flexShrink: 0 }}>
-                        {relativeTime(c.created_at)}
-                      </span>
-                      {/* Resolve checkbox */}
-                      <button
-                        onClick={() => toggleResolvido(c.id)}
-                        className="flex items-center justify-center flex-shrink-0 transition-all"
-                        style={{
-                          width: '16px', height: '16px', borderRadius: '4px',
-                          border: c.resolvido ? '2px solid #14AE5C' : '2px solid #3A3A3C',
-                          background: c.resolvido ? '#14AE5C' : 'transparent',
-                          color: c.resolvido ? 'white' : 'transparent',
-                          cursor: 'pointer',
-                        }}
-                        title={c.resolvido ? 'Marcar como nao resolvido' : 'Marcar como resolvido'}
-                      >
-                        {c.resolvido && (
-                          <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: '13px', color: c.resolvido ? '#5A5A5E' : '#8E8E93',
-                        lineHeight: 1.5, marginTop: '6px', marginLeft: '32px',
-                        textDecoration: c.resolvido ? 'line-through' : 'none',
-                      }}
-                    >
-                      {renderMentionText(c.texto)}
-                    </p>
                   </div>
                 ))}
               </div>
+            )}
 
-              {/* New comment form with @mention */}
-              <form onSubmit={handleAddComment} className="relative" style={{ marginTop: '12px' }}>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    {/* Highlight overlay */}
-                    <div
-                      aria-hidden
-                      className="absolute inset-0 pointer-events-none overflow-hidden whitespace-pre z-[1]"
-                      style={{ padding: '10px 14px', fontSize: '13px' }}
-                    >
-                      {novoComentario.split(/(@\S+)/g).map((part, i) =>
-                        part.startsWith('@') ? (
-                          <span key={i} style={{ color: '#4A90D9', fontWeight: 500 }}>{part}</span>
-                        ) : (
-                          <span key={i} style={{ color: '#E5E5E7' }}>{part}</span>
-                        )
-                      )}
-                    </div>
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={novoComentario}
-                      onChange={(e) => handleCommentInput(e.target.value)}
-                      onKeyDown={handleCommentKeyDown}
-                      placeholder="Escreva um comentario... @mencione"
-                      className="w-full focus:outline-none"
-                      style={{
-                        padding: '10px 14px', background: '#111113', border: '1px solid #2A2A2C',
-                        borderRadius: '8px', fontSize: '13px', color: 'transparent',
-                        caretColor: '#E5E5E7', position: 'relative',
+            <form onSubmit={handleAddEntrega} className="flex items-center gap-2 flex-wrap">
+              <input
+                type="text"
+                value={novaEntregaNome}
+                onChange={(e) => setNovaEntregaNome(e.target.value)}
+                placeholder="Nome da entrega..."
+                className="flex-1 min-w-[120px] px-2 py-1.5 bg-bg-card border border-border rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent"
+              />
+              <input
+                type="date"
+                value={novaEntregaData}
+                onChange={(e) => setNovaEntregaData(e.target.value)}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                title="Data de entrega"
+              />
+              <input
+                type="time"
+                value={novaEntregaHora}
+                onChange={(e) => setNovaEntregaHora(e.target.value)}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent [color-scheme:dark]"
+                title="Hora do cliente"
+              />
+              <select
+                value={novaEntregaMargem}
+                onChange={(e) => setNovaEntregaMargem(e.target.value)}
+                className="px-1 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
+                title="Margem"
+              >
+                <option value="0">0h</option>
+                <option value="2">-2h</option>
+                <option value="4">-4h</option>
+                <option value="6">-6h</option>
+                <option value="8">-8h</option>
+              </select>
+              <select
+                value={novaEntregaTag}
+                onChange={(e) => setNovaEntregaTag(e.target.value as TagJob | '')}
+                className="px-2 py-1.5 bg-bg-card border border-border rounded text-xs text-text-secondary focus:outline-none focus:border-accent"
+              >
+                <option value="">Tag</option>
+                {(Object.entries(TAGS) as [TagJob, { label: string; color: string }][]).map(
+                  ([value, config]) => (
+                    <option key={value} value={value}>{config.label}</option>
+                  )
+                )}
+              </select>
+              <button
+                type="submit"
+                disabled={!novaEntregaNome.trim() || addingEntrega}
+                className="px-3 py-1.5 bg-accent text-bg-primary text-xs font-semibold rounded hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {addingEntrega ? '...' : '+'}
+              </button>
+            </form>
+          </div>
+
+          <div className="border-t border-border" />
+
+          {/* Files */}
+          <FileUpload
+            jobId={job.id}
+            arquivos={arquivos}
+            onUpload={handleFileUpload}
+            onDelete={handleFileDelete}
+          />
+
+          {/* Delete */}
+          {onDelete && (
+            <div className="border-t border-border pt-4">
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
+                >
+                  Excluir job
+                </button>
+              ) : (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md space-y-2">
+                  <p className="text-sm text-red-400">
+                    Digite seu nome para confirmar a exclusao:
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    placeholder="Seu nome..."
+                    autoFocus
+                    className="w-full px-3 py-2 bg-bg-card border border-red-500/30 rounded-md text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-red-400"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (deleteConfirmName.trim().length >= 2) {
+                          onDelete(job.id)
+                        }
                       }}
-                    />
+                      disabled={deleteConfirmName.trim().length < 2}
+                      className="px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-md hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Confirmar exclusao
+                    </button>
+                    <button
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }}
+                      className="px-3 py-1.5 text-xs text-text-secondary hover:text-text-primary"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-                    {/* @mention dropdown */}
-                    {showMentionDropdown && filteredMembros.length > 0 && (
-                      <div
-                        className="absolute bottom-full left-0 mb-1 w-full overflow-hidden z-50"
-                        style={{ background: '#141416', border: '1px solid #2A2A2C', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
-                      >
-                        {filteredMembros.map((m, i) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => handleMentionSelect(m)}
-                            className="w-full text-left flex items-center gap-2 transition-colors"
-                            style={{
-                              padding: '8px 12px', fontSize: '12px',
-                              background: i === mentionIndex ? 'rgba(74,144,217,0.15)' : 'transparent',
-                              color: i === mentionIndex ? '#4A90D9' : '#E5E5E7',
-                            }}
-                          >
-                            <span
-                              className="flex items-center justify-center"
-                              style={{
-                                width: '20px', height: '20px', borderRadius: '6px',
-                                background: 'rgba(74,144,217,0.2)', color: '#4A90D9',
-                                fontSize: '9px', fontWeight: 700,
-                              }}
-                            >
-                              {m.nome.charAt(0).toUpperCase()}
-                            </span>
-                            <div className="min-w-0">
-                              <span style={{ fontWeight: 500 }}>{m.nome}</span>
-                              <span style={{ fontSize: '10px', color: '#5A5A5E', marginLeft: '6px' }}>{m.email}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
+          <div className="border-t border-border" />
+
+          {/* Comments */}
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary mb-3">
+              Comentarios ({comentarios.length})
+            </h3>
+
+            {loadingComments ? (
+              <p className="text-sm text-text-muted italic mb-3">Carregando...</p>
+            ) : comentarios.length === 0 ? (
+              <p className="text-sm text-text-muted italic mb-3">
+                Nenhum comentario ainda.
+              </p>
+            ) : null}
+
+            <div className="space-y-2 mb-4">
+              {comentarios.map((c) => (
+                <div
+                  key={c.id}
+                  className={`flex items-start gap-3 p-3 rounded-md border transition-colors ${
+                    c.resolvido
+                      ? 'bg-bg-primary border-border opacity-60'
+                      : 'bg-bg-card border-border'
+                  }`}
+                >
+                  <button
+                    onClick={() => toggleResolvido(c.id)}
+                    className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                      c.resolvido
+                        ? 'bg-accent border-accent text-bg-primary'
+                        : 'border-border hover:border-accent'
+                    }`}
+                  >
+                    {c.resolvido && (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold text-accent">
+                        {c.autor?.nome ?? 'Membro'}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${c.resolvido ? 'line-through text-text-muted' : 'text-text-primary'}`}>
+                      {renderMentionText(c.texto)}
+                    </p>
+                    <span className="text-xs text-text-muted mt-1 block">
+                      {new Date(c.created_at).toLocaleDateString('pt-BR', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* New comment form with @mention */}
+            <form onSubmit={handleAddComment} className="relative">
+              <div className="flex gap-2">
+                <div className="relative flex-1 bg-bg-card border border-border rounded-md focus-within:border-accent">
+                  {/* Highlight overlay — renders colored @mentions on top of the input */}
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 px-3 py-2 text-sm pointer-events-none overflow-hidden whitespace-pre z-[1]"
+                  >
+                    {novoComentario.split(/(@\S+)/g).map((part, i) =>
+                      part.startsWith('@') ? (
+                        <span key={i} className="text-accent font-medium">{part}</span>
+                      ) : (
+                        <span key={i} className="text-text-primary">{part}</span>
+                      )
                     )}
                   </div>
-                  <button
-                    type="submit"
-                    disabled={!novoComentario.trim() || sendingComment}
-                    style={{
-                      padding: '10px 16px', background: '#4A90D9', color: 'white',
-                      border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                      cursor: (!novoComentario.trim() || sendingComment) ? 'not-allowed' : 'pointer',
-                      opacity: (!novoComentario.trim() || sendingComment) ? 0.4 : 1,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {sendingComment ? '...' : 'Enviar'}
-                  </button>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={novoComentario}
+                    onChange={(e) => handleCommentInput(e.target.value)}
+                    onKeyDown={handleCommentKeyDown}
+                    placeholder="Comentar... (use @ para mencionar)"
+                    className="w-full px-3 py-2 bg-transparent text-sm placeholder-text-muted focus:outline-none relative"
+                    style={{ color: 'transparent', caretColor: 'var(--text-primary)' }}
+                  />
+
+                  {/* @mention dropdown */}
+                  {showMentionDropdown && filteredMembros.length > 0 && (
+                    <div className="absolute bottom-full left-0 mb-1 w-64 bg-bg-elevated border border-border rounded-md shadow-elevated overflow-hidden z-50">
+                      {filteredMembros.map((m, i) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleMentionSelect(m)}
+                          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                            i === mentionIndex
+                              ? 'bg-accent/15 text-accent'
+                              : 'text-text-primary hover:bg-bg-tertiary'
+                          }`}
+                        >
+                          <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">
+                            {m.nome.charAt(0).toUpperCase()}
+                          </span>
+                          <div>
+                            <span className="font-medium">{m.nome}</span>
+                            <span className="text-xs text-text-muted ml-2">{m.email}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </form>
-            </div>
+                <button
+                  type="submit"
+                  disabled={!novoComentario.trim() || sendingComment}
+                  className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {sendingComment ? '...' : 'Enviar'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -1503,7 +1077,7 @@ function renderMentionText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith('@')) {
       return (
-        <span key={i} style={{ color: '#4A90D9', fontWeight: 500 }}>
+        <span key={i} className="text-accent font-medium">
           {part}
         </span>
       )

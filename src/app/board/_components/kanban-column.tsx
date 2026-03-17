@@ -39,7 +39,7 @@ export function KanbanColumn({ coluna, jobs, onJobClick, onTagsChange }: KanbanC
             isOver ? 'bg-accent-muted' : ''
           }`}
           style={{
-            borderTop: coluna.cor ? `2px solid ${coluna.cor}` : '2px solid #4A90D9',
+            borderTop: coluna.cor ? `2px solid ${coluna.cor}` : '2px solid #F5A623',
           }}
         >
           {jobs.map((job) => (

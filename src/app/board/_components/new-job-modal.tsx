@@ -10,7 +10,7 @@ interface NewJobModalProps {
   clientes: Cliente[]
   onClose: () => void
   onSubmit: (job: Partial<Job>) => void
-  onNewCliente?: (nome: string, cor?: string) => Promise<Cliente | null>
+  onNewCliente?: (nome: string) => Promise<Cliente | null>
 }
 
 export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente }: NewJobModalProps) {
@@ -18,7 +18,6 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
   const [clienteId, setClienteId] = useState('')
   const [showNewCliente, setShowNewCliente] = useState(false)
   const [newClienteNome, setNewClienteNome] = useState('')
-  const [newClienteCor, setNewClienteCor] = useState('')
   const [creatingCliente, setCreatingCliente] = useState(false)
   const [tipoJob, setTipoJob] = useState<TipoJob>('publicidade')
   const [colunaId, setColunaId] = useState(colunas[0]?.id ?? '')
@@ -92,8 +91,7 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
               </select>
             </div>
             {showNewCliente && (
-              <div className="mt-2 space-y-2">
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-2">
                 <input
                   type="text"
                   value={newClienteNome}
@@ -108,13 +106,12 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
                   onClick={async () => {
                     if (!onNewCliente || !newClienteNome.trim()) return
                     setCreatingCliente(true)
-                    const created = await onNewCliente(newClienteNome.trim(), newClienteCor || undefined)
+                    const created = await onNewCliente(newClienteNome.trim())
                     setCreatingCliente(false)
                     if (created) {
                       setClienteId(created.id)
                       setShowNewCliente(false)
                       setNewClienteNome('')
-                      setNewClienteCor('')
                     }
                   }}
                   className="px-3 py-2 bg-accent text-bg-primary text-xs font-semibold rounded-md hover:bg-accent-hover transition-colors disabled:opacity-50"
@@ -123,26 +120,11 @@ export function NewJobModal({ colunas, clientes, onClose, onSubmit, onNewCliente
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowNewCliente(false); setNewClienteNome(''); setNewClienteCor('') }}
+                  onClick={() => { setShowNewCliente(false); setNewClienteNome('') }}
                   className="px-2 py-2 text-xs text-text-secondary hover:text-text-primary"
                 >
                   Cancelar
                 </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-text-muted">Cor do cliente:</label>
-                <div className="flex gap-1.5">
-                  {['#4A90D9', '#9747FF', '#E84393', '#FF8C00', '#14AE5C', '#EF4444', '#FFCD29', '#00C2CB'].map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setNewClienteCor(c)}
-                      className={`w-6 h-6 rounded-md border-2 transition-all ${newClienteCor === c ? 'border-white scale-110' : 'border-transparent'}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
               </div>
             )}
           </div>

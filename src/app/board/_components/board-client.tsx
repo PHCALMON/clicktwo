@@ -3,7 +3,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { Coluna, Job, Cliente, TagJob, Profile, StatusMembro } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
-import { ClientLogo } from '@/components/ui/client-logo'
 import { KanbanBoard } from './kanban-board'
 import { JobListView } from './job-list-view'
 import { NewJobModal } from './new-job-modal'
@@ -140,35 +139,17 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const isDemoMode = typeof window !== 'undefined' &&
     process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
 
-  const [vetoError, setVetoError] = useState<string | null>(null)
-  const jobsBeforeDrag = useRef<Job[]>([])
-
   const handleBatchReorder = useCallback(async (items: { id: string; coluna_id: string; posicao: number }[]) => {
     if (isDemoMode) return
-    const res = await fetch('/api/jobs/reorder', {
+    await fetch('/api/jobs/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobs: items }),
     })
-    if (!res.ok) {
-      // Veto or error — revert to state before drag
-      setJobs(jobsBeforeDrag.current)
-      const data = await res.json().catch(() => ({ details: ['Erro desconhecido'] }))
-      const msg = data.details?.[0] || data.error || 'Movimento bloqueado'
-      setVetoError(msg)
-      setTimeout(() => setVetoError(null), 5000)
-    }
-    jobsBeforeDrag.current = []
   }, [isDemoMode])
 
   const handleJobsReorder = useCallback((updatedJobs: Job[]) => {
-    setJobs((prev) => {
-      // Save state before first reorder in a drag sequence
-      if (jobsBeforeDrag.current.length === 0) {
-        jobsBeforeDrag.current = prev
-      }
-      return updatedJobs
-    })
+    setJobs(updatedJobs)
   }, [])
 
   const handleNewJob = useCallback(async (jobData: Partial<Job>) => {
@@ -189,7 +170,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
         drive_folder_url: null,
         freela_nome: null,
         freela_funcao: null,
-        assignee_id: null,
         created_at: new Date().toISOString(),
         created_by: 'demo',
         cliente: clientesList.find((c) => c.id === jobData.cliente_id),
@@ -295,52 +275,55 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
     setColunas((prev) => [...prev, newColuna])
   }, [colunas])
 
-  const jobCountByCliente = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const job of jobs) {
-      map.set(job.cliente_id, (map.get(job.cliente_id) ?? 0) + 1)
-    }
-    return map
-  }, [jobs])
-
   return (
     <>
-      {/* Topbar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+      <div className="flex items-center justify-between px-6 pt-5 pb-2">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-text-primary">Board</h2>
+          <h2 className="text-xl font-bold text-text-primary">Board</h2>
+          {/* View Toggle */}
           <div className="flex bg-bg-elevated border border-border rounded-md overflow-hidden">
             <button
               onClick={() => setViewMode('kanban')}
-              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewMode === 'kanban'
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-bg-primary'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
+              title="Kanban"
             >
-              Kanban
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="18" rx="1" />
+                <rect x="14" y="3" width="7" height="12" rx="1" />
+              </svg>
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-bg-primary'
                   : 'text-text-secondary hover:text-text-primary'
               }`}
+              title="Lista"
             >
-              Lista
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
             </button>
           </div>
         </div>
         <button
           onClick={() => setShowNewJob(true)}
-          className="px-3.5 py-1.5 bg-accent text-white text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
+          className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"
         >
           + Novo Job
         </button>
       </div>
 
-      {/* Team bar */}
       {membrosList.length > 0 && (
         <TeamStatusBar
           membros={membrosList}
@@ -351,45 +334,46 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Client sidebar — redesigned with icons */}
-        <aside className="w-52 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3">
-          <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-widest px-2 mb-2">Clientes</h3>
-
+        {/* Sidebar de Clientes */}
+        <aside className="w-48 shrink-0 border-r border-border bg-bg-secondary overflow-y-auto px-2 py-3 shadow-card">
+          <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider px-2 mb-2">Clientes</h3>
           <button
             onClick={() => setSelectedClienteId(null)}
-            className={`w-full flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg transition-colors ${
+            className={`w-full text-left text-sm px-2 py-1.5 rounded-md transition-colors ${
               selectedClienteId === null
-                ? 'bg-accent/10 text-accent font-semibold'
+                ? 'bg-accent/15 text-accent font-semibold'
                 : 'text-text-primary hover:bg-bg-tertiary'
             }`}
           >
-            <div className="w-7 h-7 rounded-md bg-accent/15 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-accent">*</span>
-            </div>
-            <span>Todos</span>
+            Todos
           </button>
-
-          {clientesList.map((cliente) => {
-            const isActive = selectedClienteId === cliente.id
-            const count = jobCountByCliente.get(cliente.id) ?? 0
-            return (
+          {clientesList.map((cliente) => (
+            <div key={cliente.id} className="flex items-center gap-1">
               <button
-                key={cliente.id}
                 onClick={() => setSelectedClienteId(cliente.id)}
-                className={`w-full flex items-center gap-2.5 text-sm px-2 py-2 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-accent/10 text-accent font-semibold'
+                className={`flex-1 text-left text-sm px-2 py-1.5 rounded-md transition-colors truncate ${
+                  selectedClienteId === cliente.id
+                    ? 'bg-accent/15 text-accent font-semibold'
                     : 'text-text-primary hover:bg-bg-tertiary'
                 }`}
               >
-                <ClientLogo nome={cliente.nome} dominio={cliente.dominio} cor={cliente.cor} size="md" />
-                <span className="truncate flex-1 text-left">{cliente.nome}</span>
-                {count > 0 && (
-                  <span className="text-[10px] text-text-muted font-medium">{count}</span>
-                )}
+                {cliente.nome}
               </button>
-            )
-          })}
+              {cliente.drive_folder_url && (
+                <a
+                  href={cliente.drive_folder_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Abrir pasta no Drive"
+                  className="shrink-0 p-1 text-text-secondary hover:text-accent transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          ))}
         </aside>
 
         {/* Board or List */}
@@ -422,11 +406,11 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
           clientes={clientesList}
           onClose={() => setShowNewJob(false)}
           onSubmit={handleNewJob}
-          onNewCliente={async (nome: string, cor?: string) => {
+          onNewCliente={async (nome: string) => {
             const res = await fetch('/api/clientes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ nome, cor }),
+              body: JSON.stringify({ nome }),
             })
             if (!res.ok) return null
             const created = await res.json()
@@ -434,13 +418,6 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
             return created as Cliente
           }}
         />
-      )}
-
-      {/* Veto toast */}
-      {vetoError && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-red-500/90 text-white text-sm font-medium rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {vetoError}
-        </div>
       )}
 
       {selectedJob && (

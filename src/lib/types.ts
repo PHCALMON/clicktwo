@@ -23,34 +23,6 @@ export interface Cliente {
   created_at: string
 }
 
-export interface Job {
-  id: string
-  cliente_id: string
-  campanha: string
-  tipo_job: TipoJob
-  coluna_id: string
-  posicao: number
-  data_entrega: string | null
-  hora_entrega_cliente: string | null
-  margem_horas: number | null
-  prioridade: Prioridade
-  tags: TagJob[]
-  assignee_id: string | null
-  em_producao_por: string | null
-  drive_folder_url: string | null
-  freela_nome: string | null
-  freela_funcao: string | null
-  created_at: string
-  created_by: string
-  // joined
-  cliente?: Cliente
-  coluna?: Coluna
-  entregas?: Entrega[]
-  // aggregated
-  entregas_total?: number
-  entregas_concluidas?: number
-}
-
 export type Cargo = 'atendimento' | 'editor' | 'motion' | 'diretor' | 'colorista' | 'sound' | 'produtor' | 'filmmaker' | 'roteirista'
 
 export type CategoriaPersonalidade = 'analistas' | 'diplomatas' | 'sentinelas' | 'exploradores'
@@ -72,6 +44,33 @@ export interface PersonalidadeResult {
     identidade: number
   }
   respondido_em: string
+}
+
+export interface Job {
+  id: string
+  cliente_id: string
+  campanha: string
+  tipo_job: TipoJob
+  coluna_id: string
+  posicao: number
+  data_entrega: string | null
+  hora_entrega_cliente: string | null
+  margem_horas: number | null
+  prioridade: Prioridade
+  tags: TagJob[]
+  em_producao_por: string | null
+  drive_folder_url: string | null
+  freela_nome: string | null
+  freela_funcao: string | null
+  created_at: string
+  created_by: string
+  // joined
+  cliente?: Cliente
+  coluna?: Coluna
+  entregas?: Entrega[]
+  // aggregated
+  entregas_total?: number
+  entregas_concluidas?: number
 }
 
 export interface Profile {
@@ -121,7 +120,6 @@ export interface Entrega {
   data_entrega: string | null
   hora_entrega_cliente: string | null
   margem_horas: number | null
-  produzindo_por: string | null
   created_at: string
 }
 

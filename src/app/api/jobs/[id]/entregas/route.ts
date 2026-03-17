@@ -82,7 +82,7 @@ export async function PUT(
   }
 
   const body = await request.json()
-  const { entrega_id, concluida, nome, tag, data_entrega, hora_entrega_cliente, margem_horas, produzindo_por } = body
+  const { entrega_id, concluida, nome, tag, data_entrega, hora_entrega_cliente, margem_horas } = body
 
   if (!entrega_id) {
     return NextResponse.json({ error: 'entrega_id required' }, { status: 400 })
@@ -95,7 +95,6 @@ export async function PUT(
   if (data_entrega !== undefined) updateData.data_entrega = data_entrega || null
   if (hora_entrega_cliente !== undefined) updateData.hora_entrega_cliente = hora_entrega_cliente || null
   if (margem_horas !== undefined) updateData.margem_horas = margem_horas
-  if (produzindo_por !== undefined) updateData.produzindo_por = produzindo_por
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
