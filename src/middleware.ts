@@ -1,12 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server'
-
-const isDemoMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
+import { type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  if (isDemoMode) {
-    return NextResponse.next()
-  }
-
   const { updateSession } = await import('@/lib/supabase/middleware')
   return await updateSession(request)
 }

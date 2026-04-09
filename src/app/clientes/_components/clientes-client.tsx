@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import type { Cliente } from '@/lib/types'
 import { useRealtime } from '@/lib/hooks/use-realtime'
 import { ClientLogo } from '@/components/ui/client-logo'
@@ -12,12 +11,16 @@ interface ClientesClientProps {
   initialClientes: Cliente[]
 }
 
-const isDemoMode = typeof window !== 'undefined' &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
-
 export function ClientesClient({ initialClientes }: ClientesClientProps) {
-  const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>(initialClientes)
+
+  // Client-side re-fetch when SSR returned empty (auth cookie race condition)
+  useEffect(() => {
+    if (initialClientes.length > 0) return
+    fetch('/api/clientes')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { if (data.length) setClientes(data) })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [nome, setNome] = useState('')
@@ -64,28 +67,6 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return
-
-    if (isDemoMode) {
-      if (editingId) {
-        setClientes((prev) =>
-          prev.map((c) => (c.id === editingId ? { ...c, nome: nome.trim() } : c))
-        )
-      } else {
-        const newCliente: Cliente = {
-          id: `c${Date.now()}`,
-          nome: nome.trim(),
-          dominio: dominio.trim() || null,
-          cor: cor || null,
-          drive_folder_url: null,
-          created_at: new Date().toISOString(),
-        }
-        setClientes((prev) => [...prev, newCliente].sort((a, b) => a.nome.localeCompare(b.nome)))
-      }
-      setShowForm(false)
-      setNome('')
-      setEditingId(null)
-      return
-    }
 
     setLoading(true)
     setError(null)
@@ -151,28 +132,31 @@ export function ClientesClient({ initialClientes }: ClientesClientProps) {
       setSyncResult(
         `${result.new_clients} novo(s), ${result.already_exists} existente(s), ${result.folders_found} pasta(s) no Drive`
       )
-      router.refresh()
+      // Refresh clientes list
+      const cliRes = await fetch('/api/clientes')
+      if (cliRes.ok) {
+        const data = await cliRes.json()
+        setClientes(data)
+      }
     } catch {
       setError('Erro de conexão ao sincronizar')
     } finally {
       setSyncing(false)
     }
-  }, [router])
+  }, [])
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-text-primary">Clientes</h2>
         <div className="flex gap-2">
-          {!isDemoMode && (
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="px-4 py-2 text-sm font-semibold rounded-md border border-border text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors disabled:opacity-50"
-            >
-              {syncing ? 'Sincronizando...' : 'Sincronizar Drive'}
-            </button>
-          )}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-4 py-2 text-sm font-semibold rounded-md border border-border text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors disabled:opacity-50"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar Drive'}
+          </button>
           <button
             onClick={handleAdd}
             className="px-4 py-2 bg-accent text-bg-primary text-sm font-semibold rounded-md hover:bg-accent-hover transition-colors"

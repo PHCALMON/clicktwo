@@ -27,6 +27,24 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null)
 
+  // Client-side re-fetch when SSR returned empty (auth cookie race condition)
+  useEffect(() => {
+    if (initialColunas.length > 0 && initialJobs.length > 0) return
+    async function refetch() {
+      const [colRes, jobRes, cliRes, memRes] = await Promise.all([
+        fetch('/api/colunas').then((r) => r.ok ? r.json() : []),
+        fetch('/api/jobs').then((r) => r.ok ? r.json() : []),
+        fetch('/api/clientes').then((r) => r.ok ? r.json() : []),
+        fetch('/api/membros').then((r) => r.ok ? r.json() : []),
+      ])
+      if (colRes.length) setColunas(colRes)
+      if (jobRes.length) setJobs(jobRes)
+      if (cliRes.length) setClientesList(cliRes)
+      if (memRes.length) setMembrosList(memRes)
+    }
+    refetch()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Drag-to-scroll for kanban
   const scrollRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
