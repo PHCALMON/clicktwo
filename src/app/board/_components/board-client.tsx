@@ -136,64 +136,35 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
   useRealtime(realtimeCallbacks)
 
-  const isDemoMode = typeof window !== 'undefined' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder')
-
   const handleBatchReorder = useCallback(async (items: { id: string; coluna_id: string; posicao: number }[]) => {
-    if (isDemoMode) return
     await fetch('/api/jobs/reorder', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jobs: items }),
     })
-  }, [isDemoMode])
+  }, [])
 
   const handleJobsReorder = useCallback((updatedJobs: Job[]) => {
     setJobs(updatedJobs)
   }, [])
 
   const handleNewJob = useCallback(async (jobData: Partial<Job>) => {
-    if (isDemoMode) {
-      const newJob: Job = {
-        id: `j${Date.now()}`,
-        cliente_id: jobData.cliente_id ?? '',
-        campanha: jobData.campanha ?? '',
-        tipo_job: jobData.tipo_job ?? 'publicidade',
-        coluna_id: jobData.coluna_id ?? colunas[0]?.id ?? '',
-        posicao: jobs.filter((j) => j.coluna_id === jobData.coluna_id).length,
-        data_entrega: jobData.data_entrega ?? null,
-        hora_entrega_cliente: jobData.hora_entrega_cliente ?? null,
-        margem_horas: jobData.margem_horas ?? 4,
-        prioridade: jobData.prioridade ?? 'normal',
-        tags: jobData.tags ?? [],
-        em_producao_por: null,
-        drive_folder_url: null,
-        freela_nome: null,
-        freela_funcao: null,
-        created_at: new Date().toISOString(),
-        created_by: 'demo',
-        cliente: clientesList.find((c) => c.id === jobData.cliente_id),
-      }
-      setJobs((prev) => [...prev, newJob])
-    } else {
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobData),
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(jobData),
+    })
+    if (res.ok) {
+      const created = await res.json()
+      setJobs((prev) => {
+        if (prev.some((j) => j.id === created.id)) return prev
+        return [...prev, created]
       })
-      if (res.ok) {
-        // Add immediately from API response (Realtime INSERT will be deduplicated)
-        const created = await res.json()
-        setJobs((prev) => {
-          if (prev.some((j) => j.id === created.id)) return prev
-          return [...prev, created]
-        })
-      } else {
-        console.error('Failed to create job:', await res.text())
-      }
+    } else {
+      console.error('Failed to create job:', await res.text())
     }
     setShowNewJob(false)
-  }, [isDemoMode, colunas, jobs, clientesList])
+  }, [])
 
   const handleJobClick = useCallback((job: Job) => {
     setSelectedJob(job)
@@ -206,39 +177,33 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
 
   const handleTagsChange = useCallback(async (jobId: string, tags: TagJob[]) => {
     setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, tags } : j)))
-    if (!isDemoMode) {
-      await fetch(`/api/jobs/${jobId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      })
-    }
-  }, [isDemoMode])
+    await fetch(`/api/jobs/${jobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    })
+  }, [])
 
 
   const handleDeleteJob = useCallback(async (jobId: string) => {
-    if (isDemoMode) {
+    const res = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
+    if (res.ok) {
       setJobs((prev) => prev.filter((j) => j.id !== jobId))
     } else {
-      const res = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' })
-      if (!res.ok) {
-        console.error('Failed to delete job:', await res.text())
-      }
+      console.error('Failed to delete job:', await res.text())
     }
     setSelectedJob(null)
-  }, [isDemoMode])
+  }, [])
 
   const handleStatusChange = useCallback(async (status: StatusMembro, texto?: string) => {
     // Optimistic update
     setMembrosList((prev) => prev.map((m) => (m.id === currentUserId ? { ...m, status, status_texto: texto ?? m.status_texto } : m)))
-    if (!isDemoMode) {
-      await fetch('/api/membros/status', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, texto }),
-      })
-    }
-  }, [isDemoMode, currentUserId])
+    await fetch('/api/membros/status', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, texto }),
+    })
+  }, [currentUserId])
 
   const handleEmProducaoToggle = useCallback(async (jobId: string) => {
     const job = jobs.find((j) => j.id === jobId)
@@ -254,14 +219,12 @@ export function BoardClient({ colunas: initialColunas, jobs: initialJobs, client
       return j
     }))
 
-    if (!isDemoMode) {
-      await fetch(`/api/jobs/${jobId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ em_producao_por: newValue }),
-      })
-    }
-  }, [isDemoMode, currentUserId, jobs])
+    await fetch(`/api/jobs/${jobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ em_producao_por: newValue }),
+    })
+  }, [currentUserId, jobs])
 
   const handleAddColumn = useCallback((nome: string, cor: string | null) => {
     const maxPos = Math.max(...colunas.map((c) => c.posicao), -1)
